@@ -1,0 +1,131 @@
+import { useCallback, useEffect, useState } from 'react';
+import PageWrapper from '../components/layout/PageWrapper';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+
+export default function Settings() {
+  const { user, hasRole } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [updating, setUpdating] = useState(null);
+
+  const fetchUsers = useCallback(async () => {
+    if (!hasRole('admin')) return;
+    try {
+      const res = await api.get('/auth/users');
+      setUsers(res.data.users);
+    } catch (error) {
+      void error;
+    }
+  }, [hasRole]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const updateUser = async (id, data) => {
+    setUpdating(id);
+    try {
+      await api.patch(`/auth/users/${id}`, data);
+      toast.success('User updated');
+      fetchUsers();
+    } catch (error) {
+      void error;
+      toast.error('Update failed');
+    }
+    finally { setUpdating(null); }
+  };
+
+  return (
+    <PageWrapper title="/ settings / system">
+      <div className="space-y-5 max-w-3xl">
+        {/* Profile */}
+        <div className="card corner-accent">
+          <p className="section-title mb-4">My Profile</p>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {[
+              ['Username', user?.username],
+              ['Email', user?.email],
+              ['Role', user?.role],
+              ['Clearance Level', user?.clearanceLevel],
+              ['Account Created', user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <p className="input-label">{k}</p>
+                <p className={`font-mono text-sm ${k === 'Role' ? 'text-accent uppercase' : 'text-text-primary'}`}>{v || '—'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Alert thresholds */}
+        <div className="card">
+          <p className="section-title mb-4">Alert Thresholds</p>
+          <div className="space-y-3 text-xs font-mono">
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-text-secondary">Critical threshold</span>
+              <span className="text-alert">Risk Score &gt; 0.70</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-text-secondary">Suspicious threshold</span>
+              <span className="text-warning">Risk Score 0.40–0.70</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-text-secondary">Normal threshold</span>
+              <span className="text-success">Risk Score &lt; 0.40</span>
+            </div>
+          </div>
+        </div>
+
+        {/* API info */}
+        <div className="card">
+          <p className="section-title mb-4">Service Endpoints</p>
+          <div className="space-y-2 text-xs font-mono">
+            {[
+              ['Frontend', 'http://localhost:5173'],
+              ['API Server', 'http://localhost:4000/api'],
+              ['ML Service', 'http://localhost:8000'],
+              ['ML Docs', 'http://localhost:8000/docs'],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-center gap-3 py-1.5 border-b border-border">
+                <span className="text-text-muted w-28">{k}</span>
+                <a href={v} target="_blank" rel="noreferrer" className="text-accent hover:underline">{v}</a>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* User management (admin only) */}
+        {hasRole('admin') && (
+          <div className="card">
+            <p className="section-title mb-4">User Management</p>
+            <div className="space-y-2">
+              {users.map((u) => (
+                <div key={u._id} className="flex items-center gap-3 py-2 border-b border-border">
+                  <div className="w-7 h-7 bg-accent/20 flex items-center justify-center text-accent text-xs font-mono font-bold shrink-0">
+                    {u.username?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary">{u.username}</p>
+                    <p className="text-xs text-text-muted">{u.email}</p>
+                  </div>
+                  <select
+                    value={u.role}
+                    onChange={(e) => updateUser(u._id, { role: e.target.value })}
+                    disabled={updating === u._id || u._id === user?._id}
+                    className="select py-1 w-28 text-xs"
+                  >
+                    <option value="viewer">viewer</option>
+                    <option value="analyst">analyst</option>
+                    <option value="admin">admin</option>
+                  </select>
+                  <span className={`text-xs font-mono ${u.isActive ? 'text-success' : 'text-alert'}`}>
+                    {u.isActive ? 'active' : 'inactive'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </PageWrapper>
+  );
+}

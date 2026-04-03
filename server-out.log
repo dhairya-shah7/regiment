@@ -1,0 +1,8 @@
+
+> sentinelops-server@1.0.0 start
+> node src/server.js
+
+[WS] Socket.IO initialized
+[DB] Connected to MongoDB: mongodb://localhost:27017/sentinelops
+[Server] SentinelOps API running on http://localhost:4000
+[Server] Environment: development
