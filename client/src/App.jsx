@@ -4,6 +4,8 @@ import { useAuthStore } from './store/authStore';
 import { connectSocket } from './services/websocket';
 import Sidebar from './components/layout/Sidebar';
 import AlertBanner from './components/ui/AlertBanner';
+import { OfflineIndicator } from './components/ui/OfflineIndicator';
+import { PwaInstallPrompt } from './components/ui/PwaInstallPrompt';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Datasets from './pages/Datasets';
@@ -22,9 +24,9 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
 function AppShell({ children }) {
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AlertBanner />
         {children}
       </div>
@@ -43,6 +45,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <OfflineIndicator />
+      <PwaInstallPrompt />
       <Routes>
         {/* Public */}
         <Route

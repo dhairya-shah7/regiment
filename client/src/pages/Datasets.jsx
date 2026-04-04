@@ -3,7 +3,9 @@ import PageWrapper from '../components/layout/PageWrapper';
 import UploadDropzone from '../components/ui/UploadDropzone';
 import DataTable from '../components/ui/DataTable';
 import ConfirmModal from '../components/ui/ConfirmModal';
+import offlineAPI from '../services/offlineAPI';
 import api from '../services/api';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -32,11 +34,12 @@ export default function Datasets() {
   const [template, setTemplate] = useState('Custom');
   const [name, setName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const { isOnline } = useNetworkStatus();
 
   const fetchDatasets = async () => {
     try {
-      const res = await api.get('/dataset');
-      setDatasets(res.data.datasets);
+      const result = await offlineAPI.fetchAndCacheDatasets();
+      setDatasets(result.data.datasets || []);
     } catch { toast.error('Failed to load datasets'); }
     finally { setLoading(false); }
   };
@@ -50,16 +53,22 @@ export default function Datasets() {
   }, [source]);
 
   const handleUpload = async () => {
-    if (!file) return toast.error('Select a CSV file first');
-    const uploadName = name || file.name;
+    if (!file) { toast.error('Select a file first'); return; }
+    const uploadName = (name || file.name || 'Dataset').trim();
+    if (!uploadName) { toast.error('Enter a dataset name'); return; }
+    if (!isOnline) { toast.error('Cannot upload while offline'); return; }
+
     const previousCount = datasets.length;
     const form = new FormData();
     form.append('file', file);
     form.append('source', source);
     form.append('name', uploadName);
+
     setUploading(true);
     try {
-      const uploadRes = await api.post('/dataset/upload', form);
+      const uploadRes = await api.post('/dataset/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Dataset uploaded successfully');
       setFile(null);
       setName('');
@@ -102,8 +111,9 @@ export default function Datasets() {
   };
 
   const handleDelete = async () => {
+    if (!isOnline) { toast.error('Cannot delete while offline'); return; }
     try {
-      await api.delete(`/dataset/${deleteTarget._id}`);
+      await offlineAPI.delete(`/dataset/${deleteTarget._id}`);
       toast.success('Dataset deleted');
       setDeleteTarget(null);
       fetchDatasets();

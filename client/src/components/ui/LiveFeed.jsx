@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import RiskBadge from './RiskBadge';
 
 export default function LiveFeed({ events = [], maxItems = 10 }) {
-  const bottomRef = useRef(null);
-  const [items, setItems] = useState(events);
+  const containerRef = useRef(null);
+  const prevLengthRef = useRef(0);
+  const [items, setItems] = useState(() => events.slice(0, maxItems));
 
   const formatIp = (value) => {
     if (!value || value === '0.0.0.0' || value === 'unknown') {
@@ -13,12 +14,23 @@ export default function LiveFeed({ events = [], maxItems = 10 }) {
   };
 
   useEffect(() => {
-    setItems(events.slice(0, maxItems));
+    const newItems = events.slice(0, maxItems);
+    const prevLength = prevLengthRef.current;
+    const newLength = newItems.length;
+    
+    if (newLength > prevLength && containerRef.current) {
+      const wasAtBottom = containerRef.current.scrollHeight - containerRef.current.scrollTop <= containerRef.current.clientHeight + 50;
+      setItems(newItems);
+      if (wasAtBottom) {
+        setTimeout(() => {
+          containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'smooth' });
+        }, 10);
+      }
+    } else {
+      setItems(newItems);
+    }
+    prevLengthRef.current = newLength;
   }, [events, maxItems]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [items]);
 
   if (items.length === 0) {
     return (
@@ -35,7 +47,7 @@ export default function LiveFeed({ events = [], maxItems = 10 }) {
         <span className="text-xs font-mono text-text-muted uppercase tracking-wider">Live Feed</span>
         <span className="ml-auto text-xs font-mono text-text-muted">{items.length} events</span>
       </div>
-      <div className="max-h-64 overflow-y-auto">
+      <div ref={containerRef} className="max-h-64 overflow-y-auto">
         {items.map((event, i) => (
           <div
             key={event._id || i}
@@ -61,7 +73,6 @@ export default function LiveFeed({ events = [], maxItems = 10 }) {
             <RiskBadge level={event.classification} />
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
     </div>
   );

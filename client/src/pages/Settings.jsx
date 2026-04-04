@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
 import { useAuth } from '../hooks/useAuth';
+import { useNotificationStore, requestNotificationPermission } from '../services/notifications';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -9,6 +10,20 @@ export default function Settings() {
   const [users, setUsers] = useState([]);
   const [updating, setUpdating] = useState(null);
   const [deployment, setDeployment] = useState(null);
+  const { enabled, soundEnabled, criticalOnly, alertThreshold, setEnabled, setSoundEnabled, setCriticalOnly, setAlertThreshold } = useNotificationStore();
+
+  const [notificationPermission, setNotificationPermission] = useState('default');
+
+  const handleEnableNotifications = async () => {
+    const permission = await requestNotificationPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') {
+      setEnabled(true);
+      toast.success('Notifications enabled');
+    } else if (permission === 'denied') {
+      toast.error('Notifications blocked. Enable in browser settings.');
+    }
+  };
 
   const fetchUsers = useCallback(async () => {
     if (!hasRole('admin')) return;
@@ -79,6 +94,67 @@ export default function Settings() {
               <span className="text-text-secondary">Normal threshold</span>
               <span className="text-success">Risk Score &lt; 0.40</span>
             </div>
+          </div>
+        </div>
+
+        {/* Browser Notifications */}
+        <div className="card">
+          <p className="section-title mb-4">Browser Notifications</p>
+          <div className="space-y-4">
+            {!enabled && notificationPermission !== 'denied' && (
+              <button onClick={handleEnableNotifications} className="btn btn-primary text-sm">
+                Enable Browser Notifications
+              </button>
+            )}
+            {notificationPermission === 'denied' && (
+              <p className="text-xs text-alert">Notifications are blocked. Enable in browser site settings.</p>
+            )}
+            {enabled && (
+              <>
+                <div className="flex items-center justify-between py-2 border-b border-border">
+                  <span className="text-text-secondary">Notifications</span>
+                  <button
+                    onClick={() => setEnabled(!enabled)}
+                    className={`w-10 h-5 rounded-full transition-colors ${enabled ? 'bg-accent' : 'bg-surface-3'}`}
+                  >
+                    <span className={`block w-4 h-4 bg-white rounded-full transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-border">
+                  <span className="text-text-secondary">Sound</span>
+                  <button
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    className={`w-10 h-5 rounded-full transition-colors ${soundEnabled ? 'bg-accent' : 'bg-surface-3'}`}
+                  >
+                    <span className={`block w-4 h-4 bg-white rounded-full transition-transform ${soundEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-border">
+                  <span className="text-text-secondary">Critical Only</span>
+                  <button
+                    onClick={() => setCriticalOnly(!criticalOnly)}
+                    className={`w-10 h-5 rounded-full transition-colors ${criticalOnly ? 'bg-accent' : 'bg-surface-3'}`}
+                  >
+                    <span className={`block w-4 h-4 bg-white rounded-full transition-transform ${criticalOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-text-secondary">Alert Threshold</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={alertThreshold}
+                      onChange={(e) => setAlertThreshold(parseFloat(e.target.value))}
+                      className="w-24"
+                    />
+                    <span className="text-xs font-mono text-text-muted">{alertThreshold.toFixed(1)}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

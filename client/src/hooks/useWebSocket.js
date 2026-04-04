@@ -3,6 +3,7 @@ import { connectSocket, getSocket, onEvent, offEvent } from '../services/websock
 import { useUIStore } from '../store/uiStore';
 import { useAnomalyStore } from '../store/anomalyStore';
 import { playCriticalAlertSound, unlockAlertSound } from '../services/alertSound';
+import { notifyAnomaly, requestNotificationPermission } from '../services/notifications';
 
 export const useWebSocket = () => {
   const { addAlert, incrementNotifications } = useUIStore();
@@ -35,6 +36,7 @@ export const useWebSocket = () => {
       if (anomaly.classification !== 'normal') {
         playCriticalAlertSound();
         incrementNotifications();
+        notifyAnomaly(anomaly);
       }
     };
 

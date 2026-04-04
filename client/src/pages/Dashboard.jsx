@@ -8,40 +8,23 @@ import AnomalyChart from '../components/charts/AnomalyChart';
 import ProtocolPie from '../components/charts/ProtocolPie';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAnomalyStore } from '../store/anomalyStore';
-import api from '../services/api';
+import { useOfflineDashboard, useOfflineDatasets } from '../hooks/useOfflineData';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('all');
-  const [datasets, setDatasets] = useState([]);
   const [selectedDataset, setSelectedDataset] = useState('');
   const { anomalies } = useAnomalyStore();
+  const { isOnline } = useNetworkStatus();
   useWebSocket();
 
-  const fetchStats = async (datasetId = '') => {
-    try {
-      const res = await api.get('/dashboard/stats', {
-        params: datasetId ? { datasetId } : {},
-      });
-      setStats(res.data);
-    } catch (err) {
-      console.error('Dashboard stats error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: stats, loading, offline } = useOfflineDashboard(selectedDataset, {
+    autoRefresh: isOnline,
+    refreshInterval: 30000,
+  });
+  const { data: datasetsData } = useOfflineDatasets({ autoRefresh: isOnline });
 
-  useEffect(() => {
-    api.get('/dataset?limit=100').then((res) => setDatasets(res.data.datasets || []));
-  }, []);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchStats(selectedDataset);
-    const interval = setInterval(() => fetchStats(selectedDataset), 30000);
-    return () => clearInterval(interval);
-  }, [selectedDataset]);
+  const datasets = datasetsData?.datasets || [];
 
   const kpis = stats?.kpis || {};
   const liveFeedItems = stats?.recentAnomalies?.length ? stats.recentAnomalies : anomalies.slice(0, 10);
@@ -58,13 +41,23 @@ export default function Dashboard() {
     { key: 'critical', label: 'Critical Threats' },
   ];
 
+  const getOfflineLabel = () => {
+    if (!offline) return null;
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-600/20 text-amber-700 text-[10px] font-mono uppercase">
+        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+        Offline
+      </span>
+    );
+  };
+
   return (
     <PageWrapper title="/ dashboard / overview">
       <AlertBanner />
       <div className="space-y-5">
         <div className="card flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="section-title mb-1">Dataset Scope</p>
+            <p className="section-title mb-1">Dataset Scope {getOfflineLabel()}</p>
             <p className="text-xs font-mono text-text-muted">
               {selectedDataset ? `Showing metrics for ${selectedDatasetName}` : 'Showing metrics across all datasets'}
             </p>

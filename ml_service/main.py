@@ -27,9 +27,19 @@ from utils.preprocessor import Preprocessor
 
 load_dotenv()
 
-MODEL_SAVE_PATH = Path(os.getenv("MODEL_SAVE_PATH", "./data/saved_models"))
+# Force absolute paths relative to the script location to avoid Windows path errors (Errno 22)
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_SAVE_PATH_RAW = os.getenv("MODEL_SAVE_PATH", "./data/saved_models").strip().strip('"').strip("'")
+MODEL_SAVE_PATH = (BASE_DIR / MODEL_SAVE_PATH_RAW).resolve()
 MODEL_SAVE_PATH.mkdir(parents=True, exist_ok=True)
-JOB_STORE_PATH = Path(os.getenv("JOB_STORE_PATH", "./data/job_store.json"))
+
+JOB_STORE_PATH_RAW = os.getenv("JOB_STORE_PATH", "./data/job_store.json").strip().strip('"').strip("'")
+# Ensure we don't accidentally use a name with a space if it's meant to be job_store.json
+if "job store.json" in JOB_STORE_PATH_RAW:
+    JOB_STORE_PATH_RAW = JOB_STORE_PATH_RAW.replace("job store.json", "job_store.json")
+
+JOB_STORE_PATH = (BASE_DIR / JOB_STORE_PATH_RAW).resolve()
 JOB_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Global model registry
@@ -496,6 +506,7 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
                             or ""
                         ),
                         "risk_score": round(risk, 4),
+                        "decision_score": float(batch_scores[offset]),
                         "classification": classification,
                         "threat_type": threat_type,
                         "explanation": explanation,

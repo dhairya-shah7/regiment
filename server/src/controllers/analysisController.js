@@ -178,26 +178,30 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   const scoredRows = predictResult.anomalies || predictResult.results || [];
   const anomalyDocs = scoredRows
     .filter((row) => row.is_anomaly)
-    .map((row) => ({
-      datasetId: dataset._id,
-      jobId,
-      modelId: mlResult.model_id,
-      riskScore: row.risk_score,
-      classification: row.classification,
-      threatType: normalizeThreatType(row.threat_type),
-      confidence: Math.max(0, 1 - Number(row.risk_score || 0)),
-      isAnomaly: true,
-      srcIp: row.src_ip,
-      dstIp: row.dst_ip,
-      protocol: row.protocol,
-      packetSize: row.packet_size,
-      duration: row.duration,
-      byteRate: row.byte_rate,
-      eventTimestamp: parseTimestamp(row.event_timestamp),
-      rowIndex: row.index,
-      status: 'new',
-      explanation: normalizeExplanation(row.explanation),
-    }));
+    .map((row) => {
+      const riskScore = Number(row.risk_score || 0);
+      const confidence = calculateConfidence(riskScore, row.decision_score);
+      return {
+        datasetId: dataset._id,
+        jobId,
+        modelId: mlResult.model_id,
+        riskScore,
+        classification: row.classification,
+        threatType: normalizeThreatType(row.threat_type),
+        confidence,
+        isAnomaly: true,
+        srcIp: row.src_ip,
+        dstIp: row.dst_ip,
+        protocol: row.protocol,
+        packetSize: row.packet_size,
+        duration: row.duration,
+        byteRate: row.byte_rate,
+        eventTimestamp: parseTimestamp(row.event_timestamp),
+        rowIndex: row.index,
+        status: 'new',
+        explanation: normalizeExplanation(row.explanation),
+      };
+    });
 
   updateJob(jobId, { percent: 96, stage: 'Linking source records' });
   emitAnalysisProgress(jobId, 96, 'Linking source records');
@@ -466,4 +470,23 @@ function buildTechnicalSummary(anomalyDocs = []) {
       ? 'Technical summary generated from repeated signals across the anomalous rows.'
       : 'No anomalous rows were available for technical summary generation.',
   };
+}
+
+function calculateConfidence(riskScore, decisionScore) {
+  if (decisionScore !== undefined && decisionScore !== null) {
+    const rawScore = Number(decisionScore);
+    if (!isNaN(rawScore)) {
+      const decisionConfidence = Math.abs(rawScore);
+      const threshold = 0.1;
+      if (decisionConfidence < threshold) {
+        return 0.5 + (decisionConfidence / threshold) * 0.5;
+      }
+      return Math.min(1, 0.5 + (decisionConfidence - threshold) * 0.5);
+    }
+  }
+  
+  const absRisk = Math.abs(riskScore);
+  if (absRisk <= 0.3) return 0.3 + (absRisk / 0.3) * 0.3;
+  if (absRisk >= 0.8) return Math.min(1, 0.7 + (absRisk - 0.8) * 1.5);
+  return 0.6 + (absRisk - 0.3) * (0.2 / 0.5);
 }

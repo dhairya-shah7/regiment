@@ -172,3 +172,66 @@ Client to Server:
 subscribe:job
 subscribe:dashboard
 ```
+
+## Offline Mode
+
+### True Offline Operation
+
+The app supports **true offline** - data works without internet by using local caching:
+
+1. **Run locally:** Start all services with `.\offline-start.ps1`
+2. **Data cached:** Dashboard, anomalies, datasets cached in IndexedDB
+3. **Offline indicator:** Shows when connection is lost
+4. **Auto-sync:** Queued operations sync when back online
+
+### Starting in Offline Mode (Windows)
+
+```powershell
+.\offline-start.ps1
+```
+
+This opens three PowerShell windows:
+- Backend server (port 4000)
+- ML Service (port 8000)
+- Frontend (port 5173)
+
+**Prerequisite:** Ensure MongoDB is running on `localhost:27017`.
+
+### PWA Offline Support
+
+1. **Install as App:** Click "Install" or use browser's "Add to Home Screen"
+2. **Offline Assets:** Static assets cached for offline access
+3. **Offline Indicator:** Shows connection status in top bar
+4. **Pending Sync:** Queues operations for automatic sync when reconnected
+
+### Offline Capabilities
+
+| Feature | Online | Offline |
+|---------|--------|---------|
+| View Dashboard | ✅ Full data | ✅ Cached data |
+| View Anomalies | ✅ Full data | ✅ Cached data |
+| Flag Anomalies | ✅ Immediate | ✅ Queued, synced later |
+| Upload Dataset | ✅ Full | ❌ Blocked |
+| Run Analysis | ✅ Full | ❌ Blocked |
+| Real-time Alerts | ✅ Full | ❌ Requires backend |
+
+### Network Mode (Cloud)
+
+To use with internet/cloud backend:
+1. Update `.env` with your server URL
+2. Remove `OFFLINE_MODE` env variable
+3. The app will work with remote backend normally
+
+## Browser Notifications
+
+The app can send real-time browser notifications for new anomalies:
+
+1. Go to **Settings** → **Browser Notifications**
+2. Click **Enable Browser Notifications**
+3. Allow browser permission when prompted
+
+Configure:
+- **Notifications** - Enable/disable all notifications
+- **Sound** - Play alert sound on new anomalies
+- **Critical Only** - Only notify on critical threats
+- **Alert Threshold** - Minimum risk score to trigger notification
