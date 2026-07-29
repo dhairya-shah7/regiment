@@ -108,7 +108,8 @@ export default function Analysis() {
               <div>
                 <label className="input-label">Detection Model</label>
                 <select className="select" value={modelType} onChange={(e) => setModelType(e.target.value)}>
-                  <option value="isolation_forest">Isolation Forest (Recommended)</option>
+                  <option value="temporal_hybrid">⚡ Temporal Hybrid (PyTorch LSTM + Isolation Forest)</option>
+                  <option value="isolation_forest">Isolation Forest (Point Anomaly)</option>
                   <option value="one_class_svm">One-Class SVM</option>
                 </select>
               </div>
@@ -144,7 +145,14 @@ export default function Analysis() {
           {/* Model info */}
           <div className="card">
             <p className="section-title mb-3">About the Model</p>
-            {modelType === 'isolation_forest' ? (
+            {modelType === 'temporal_hybrid' ? (
+              <div className="space-y-2 text-xs text-text-muted font-mono">
+                <p><span className="text-accent">Algorithm:</span> Temporal Hybrid (PyTorch LSTM + Isolation Forest)</p>
+                <p><span className="text-accent">Type:</span> Deep Sequence + Ensemble</p>
+                <p><span className="text-accent">Speed:</span> Medium (GPU/Multi-core accelerated)</p>
+                <p><span className="text-accent">Best for:</span> Sequential traffic flows, time-series anomaly detection</p>
+              </div>
+            ) : modelType === 'isolation_forest' ? (
               <div className="space-y-2 text-xs text-text-muted font-mono">
                 <p><span className="text-accent">Algorithm:</span> Isolation Forest</p>
                 <p><span className="text-accent">Type:</span> Unsupervised</p>
@@ -169,18 +177,18 @@ export default function Analysis() {
               <p className="text-sm leading-6 text-text-secondary">
                 {latestSummary.executiveSummary || 'No executive summary available for this run.'}
               </p>
-              <div className="mt-4 grid grid-cols-3 gap-3 text-xs font-mono">
-                <div className="border border-border p-3">
-                  <p className="text-text-muted uppercase tracking-wider">Anomalies</p>
-                  <p className="text-text-primary mt-1">{latestSummary.anomalyCount?.toLocaleString() || latestSummary.resultCount?.toLocaleString() || '0'}</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                <div className="border border-border p-2 min-w-0">
+                  <p className="text-text-muted uppercase tracking-wider text-[10px] truncate">Anomalies</p>
+                  <p className="text-text-primary mt-1 font-bold text-xs truncate">{latestSummary.anomalyCount?.toLocaleString() || latestSummary.resultCount?.toLocaleString() || '0'}</p>
                 </div>
-                <div className="border border-border p-3">
-                  <p className="text-text-muted uppercase tracking-wider">Critical</p>
-                  <p className="text-text-primary mt-1">{latestSummary.criticalCount?.toLocaleString() || '0'}</p>
+                <div className="border border-border p-2 min-w-0">
+                  <p className="text-text-muted uppercase tracking-wider text-[10px] truncate">Critical</p>
+                  <p className="text-text-primary mt-1 font-bold text-xs truncate">{latestSummary.criticalCount?.toLocaleString() || '0'}</p>
                 </div>
-                <div className="border border-border p-3">
-                  <p className="text-text-muted uppercase tracking-wider">Confidence</p>
-                  <p className="text-text-primary mt-1">{latestSummary.accuracyEstimate != null ? `${latestSummary.accuracyEstimate}%` : 'N/A'}</p>
+                <div className="border border-border p-2 min-w-0">
+                  <p className="text-text-muted uppercase tracking-wider text-[10px] truncate">Confidence</p>
+                  <p className="text-text-primary mt-1 font-bold text-xs truncate">{latestSummary.accuracyEstimate != null ? `${latestSummary.accuracyEstimate}%` : 'N/A'}</p>
                 </div>
               </div>
             </div>

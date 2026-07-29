@@ -12,21 +12,21 @@ const NAV = [
   { to: '/settings',  label: 'Settings',    icon: '⊞', roles: ['admin'] },
 ];
 
-export default function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+function SidebarContent({ collapsed, onNavClick }) {
   const { user, hasRole } = useAuth();
   const location = useLocation();
+  const { toggleSidebar } = useUIStore();
 
   return (
     <aside
       className={`flex flex-col bg-surface border-r border-border transition-all duration-200 ${
-        sidebarCollapsed ? 'w-14' : 'w-56'
+        collapsed ? 'w-14' : 'w-56'
       } min-h-screen shrink-0`}
     >
       {/* Brand */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-border">
-        <span className="text-accent text-lg font-mono font-bold shrink-0">⬡</span>
-        {!sidebarCollapsed && (
+        <img src="/regiment_logo.jpg" alt="Regiment Logo" className="w-7 h-7 object-contain shrink-0" />
+        {!collapsed && (
           <div className="min-w-0">
             <div className="text-text-primary font-display font-bold text-sm tracking-widest uppercase">Regiment</div>
             <div className="text-accent font-mono text-xs tracking-widest">OPS</div>
@@ -35,14 +35,14 @@ export default function Sidebar() {
         <button
           onClick={toggleSidebar}
           className="ml-auto text-text-muted hover:text-text-secondary transition-colors shrink-0"
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {sidebarCollapsed ? '▶' : '◀'}
+          {collapsed ? '▶' : '◀'}
         </button>
       </div>
 
       {/* System status */}
-      {!sidebarCollapsed && (
+      {!collapsed && (
         <div className="px-4 py-2 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="status-dot bg-success animate-pulse-slow" />
@@ -59,6 +59,7 @@ export default function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onNavClick}
               className={`flex items-center gap-3 px-2 py-2 text-sm transition-all duration-100 group ${
                 active
                   ? 'bg-accent-dim text-accent border-l-2 border-accent pl-2'
@@ -68,7 +69,7 @@ export default function Sidebar() {
               <span className={`font-mono shrink-0 ${active ? 'text-accent' : 'text-text-muted group-hover:text-text-secondary'}`}>
                 {item.icon}
               </span>
-              {!sidebarCollapsed && (
+              {!collapsed && (
                 <span className="font-display text-xs uppercase tracking-wider truncate">{item.label}</span>
               )}
             </NavLink>
@@ -77,8 +78,8 @@ export default function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className={`border-t border-border p-3 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
-        {sidebarCollapsed ? (
+      <div className={`border-t border-border p-3 ${collapsed ? 'flex justify-center' : ''}`}>
+        {collapsed ? (
           <div className="w-7 h-7 rounded-none bg-accent/20 flex items-center justify-center text-accent text-xs font-mono font-bold">
             {user?.username?.[0]?.toUpperCase() || 'U'}
           </div>
@@ -97,3 +98,33 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+export default function Sidebar() {
+  const { sidebarCollapsed, mobileMenuOpen, closeMobileMenu } = useUIStore();
+
+  return (
+    <>
+      {/* ── Desktop sidebar (md and up) ─────────────────────── */}
+      <div className="hidden md:block">
+        <SidebarContent collapsed={sidebarCollapsed} onNavClick={undefined} />
+      </div>
+
+      {/* ── Mobile drawer (below md) ────────────────────────── */}
+      {mobileMenuOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={closeMobileMenu}
+            aria-hidden="true"
+          />
+          {/* Drawer panel — always fully expanded on mobile */}
+          <div className="fixed inset-y-0 left-0 z-50 md:hidden flex">
+            <SidebarContent collapsed={false} onNavClick={closeMobileMenu} />
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+

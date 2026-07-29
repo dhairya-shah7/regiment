@@ -14,7 +14,7 @@ export default function KPICard({ label, value, delta, unit, color = 'accent', i
         <div>
           <p className="section-title font-display">{label}</p>
           <div className="flex items-baseline gap-2">
-            <span className={`text-3xl font-display font-bold ${cls.split(' ')[0]}`}>
+            <span className={`text-2xl sm:text-3xl font-display font-bold ${cls.split(' ')[0]}`}>
               {value ?? '—'}
             </span>
             {unit && <span className="text-xs font-mono text-text-muted">{unit}</span>}

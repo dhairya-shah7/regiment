@@ -52,6 +52,7 @@ class Preprocessor:
     def __init__(self):
         self.scaler = MinMaxScaler()
         self.fitted = False
+        self.feature_names = []
 
     def fit_transform(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, list]:
         """
@@ -79,6 +80,7 @@ class Preprocessor:
 
         # 3. Build feature matrix
         feature_names = NUMERIC_FEATURES + ["protocol_enc", "state_enc"]
+        self.feature_names = feature_names
         X = df[feature_names].values.astype(np.float64)
         X = np.clip(X, -1e9, 1e9)
 

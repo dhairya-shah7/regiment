@@ -11,10 +11,10 @@ export default function Settings() {
   const [users, setUsers] = useState([]);
   const [updating, setUpdating] = useState(null);
   const [deployment, setDeployment] = useState(null);
-  const mlServiceOrigin = getMlServiceOrigin();
   const { enabled, soundEnabled, criticalOnly, alertThreshold, setEnabled, setSoundEnabled, setCriticalOnly, setAlertThreshold } = useNotificationStore();
 
   const [notificationPermission, setNotificationPermission] = useState('default');
+  const mlOrigin = getMlServiceOrigin();
 
   const handleEnableNotifications = async () => {
     const permission = await requestNotificationPermission();
@@ -31,9 +31,10 @@ export default function Settings() {
     if (!hasRole('admin')) return;
     try {
       const res = await api.get('/auth/users');
-      setUsers(res.data.users);
+      setUsers(Array.isArray(res.data.users) ? res.data.users : []);
     } catch (error) {
       void error;
+      setUsers([]);
     }
   }, [hasRole]);
 
@@ -58,13 +59,15 @@ export default function Settings() {
     finally { setUpdating(null); }
   };
 
+  const visibleUsers = Array.isArray(users) ? users : [];
+
   return (
     <PageWrapper title="/ settings / system">
       <div className="space-y-5 max-w-3xl">
         {/* Profile */}
         <div className="card corner-accent">
           <p className="section-title mb-4">My Profile</p>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             {[
               ['Username', user?.username],
               ['Email', user?.email],
@@ -160,32 +163,11 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* API info */}
-        <div className="card">
-          <p className="section-title mb-4">Service Endpoints</p>
-          <div className="space-y-2 text-xs font-mono">
-            {[
-              ['Frontend', window.location.origin],
-              ['API Server', `${API_ORIGIN}/api`],
-              ['ML Service', mlServiceOrigin || 'Not configured'],
-              ['ML Docs', mlServiceOrigin ? `${mlServiceOrigin}/docs` : 'Not configured'],
-            ].map(([k, v]) => (
-              <div key={k} className="flex items-center gap-3 py-1.5 border-b border-border">
-                <span className="text-text-muted w-28">{k}</span>
-                {v === 'Not configured' ? (
-                  <span className="text-text-muted">{v}</span>
-                ) : (
-                  <a href={v} target="_blank" rel="noreferrer" className="text-accent hover:underline">{v}</a>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Deployment mode */}
         <div className="card">
           <p className="section-title mb-4">Deployment Mode</p>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             {[
               ['No-Cloud Mode', deployment?.noCloudMode ? 'Enabled' : 'Available'],
               ['Offline Training', deployment?.trainingMode || 'local-first'],
@@ -211,26 +193,26 @@ export default function Settings() {
           <div className="card">
             <p className="section-title mb-4">User Management</p>
             <div className="space-y-2">
-              {users.map((u) => (
-                <div key={u._id} className="flex items-center gap-3 py-2 border-b border-border">
+              {visibleUsers.map((u) => (
+                <div key={u._id} className="flex flex-wrap items-center gap-3 py-2 border-b border-border">
                   <div className="w-7 h-7 bg-accent/20 flex items-center justify-center text-accent text-xs font-mono font-bold shrink-0">
                     {u.username?.[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-text-primary">{u.username}</p>
-                    <p className="text-xs text-text-muted">{u.email}</p>
+                    <p className="text-xs text-text-muted truncate">{u.email}</p>
                   </div>
                   <select
                     value={u.role}
                     onChange={(e) => updateUser(u._id, { role: e.target.value })}
                     disabled={updating === u._id || u._id === user?._id}
-                    className="select py-1 w-28 text-xs"
+                    className="select py-1 w-28 text-xs shrink-0"
                   >
                     <option value="viewer">viewer</option>
                     <option value="analyst">analyst</option>
                     <option value="admin">admin</option>
                   </select>
-                  <span className={`text-xs font-mono ${u.isActive ? 'text-success' : 'text-alert'}`}>
+                  <span className={`text-xs font-mono shrink-0 ${u.isActive ? 'text-success' : 'text-alert'}`}>
                     {u.isActive ? 'active' : 'inactive'}
                   </span>
                 </div>

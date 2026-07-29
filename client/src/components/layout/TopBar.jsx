@@ -4,12 +4,13 @@ import { useUIStore } from '../../store/uiStore';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function TopBar({ title }) {
-  const { notifications, alerts, clearNotifications, dismissAlert } = useUIStore();
+  const { notifications, alerts, clearNotifications, dismissAlert, toggleMobileMenu } = useUIStore();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showAlerts, setShowAlerts] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -19,10 +20,18 @@ export default function TopBar({ title }) {
   }, []);
 
   return (
-    <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-4 shrink-0">
+    <header className="h-14 bg-surface border-b border-border flex items-center px-3 sm:px-5 gap-2 sm:gap-4 shrink-0">
+      <button
+        onClick={toggleMobileMenu}
+        className="md:hidden p-1.5 text-text-secondary hover:text-text-primary text-base font-mono border border-border bg-surface-2 cursor-pointer"
+        title="Toggle Menu"
+      >
+        ☰
+      </button>
+
       {/* Page title */}
       <div className="flex-1 min-w-0">
-        <h1 className="text-sm font-display font-semibold text-text-secondary uppercase tracking-widest truncate">
+        <h1 className="text-xs sm:text-sm font-display font-semibold text-text-secondary uppercase tracking-widest truncate">
           {title || 'Regiment'}
         </h1>
       </div>
@@ -34,7 +43,7 @@ export default function TopBar({ title }) {
         <SystemStatus label="API" status="online" />
       </div>
 
-      <div className="h-5 w-px bg-border" />
+      <div className="hidden md:block h-5 w-px bg-border" />
 
       {/* Timestamp */}
       <span className="hidden lg:block text-xs font-mono text-text-muted">
@@ -66,16 +75,16 @@ export default function TopBar({ title }) {
         </button>
 
         {showAlerts && (
-          <div className="absolute right-0 top-10 w-80 bg-surface border border-border z-50 shadow-2xl">
+          <div className="absolute right-0 top-10 w-72 sm:w-80 max-w-[calc(100vw-1rem)] bg-surface border border-border z-50 shadow-2xl">
             <div className="px-3 py-2 border-b border-border flex items-center justify-between">
               <span className="text-xs font-mono text-text-secondary uppercase tracking-wider">Alerts</span>
               <button onClick={() => setShowAlerts(false)} className="text-text-muted hover:text-text-secondary text-xs">✕</button>
             </div>
             <div className="max-h-72 overflow-y-auto">
-              {alerts.length === 0 ? (
+              {safeAlerts.length === 0 ? (
                 <p className="px-3 py-4 text-xs text-text-muted text-center font-mono">No alerts</p>
               ) : (
-                alerts.slice(0, 10).map((a) => (
+                safeAlerts.slice(0, 10).map((a) => (
                   <div key={a.id} className={`px-3 py-2 border-b border-border flex gap-2 ${
                     a.level === 'critical' ? 'bg-alert-dim' : 'bg-warning-dim'
                   }`}>

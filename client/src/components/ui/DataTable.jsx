@@ -31,9 +31,9 @@ export default function DataTable({
   });
 
   return (
-    <div className="border border-border overflow-hidden">
+    <div className="border border-border overflow-hidden bg-surface">
       <div className="overflow-x-auto">
-        <table className="w-full text-xs table-fixed">
+        <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="border-b border-border bg-surface-2">
               {columns.map((col) => (
@@ -43,12 +43,14 @@ export default function DataTable({
                   className={`px-3 py-2.5 text-left font-mono uppercase tracking-wider text-text-muted whitespace-nowrap ${
                     col.sortable !== false && col.key ? 'cursor-pointer hover:text-text-secondary select-none' : ''
                   }`}
-                  style={col.width ? { width: col.width } : undefined}
+                  style={{ minWidth: col.width || '110px', width: col.width || undefined }}
                 >
-                  {col.label}
-                  {sortKey === col.key && (
-                    <span className="ml-1 text-accent">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <span>{col.label}</span>
+                    {sortKey === col.key && (
+                      <span className="text-accent">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -58,7 +60,7 @@ export default function DataTable({
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
                   {columns.map((col) => (
-                    <td key={col.key} className="px-3 py-3" style={col.width ? { width: col.width } : undefined}>
+                    <td key={col.key} className="px-3 py-3" style={{ minWidth: col.width || '110px' }}>
                       <div className="h-3 bg-surface-3 rounded animate-pulse w-3/4" />
                     </td>
                   ))}
@@ -83,7 +85,7 @@ export default function DataTable({
                     <td
                       key={col.key}
                       className="px-3 py-2.5 text-text-secondary font-mono whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={col.width ? { width: col.width } : undefined}
+                      style={{ minWidth: col.width || '110px', width: col.width || undefined }}
                       title={typeof row[col.key] === 'string' ? row[col.key] : undefined}
                     >
                       {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}

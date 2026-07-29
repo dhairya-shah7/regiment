@@ -10,6 +10,7 @@ export default function AuditLogs() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ action: '', userId: '', from: '', to: '' });
+  const formatCount = (value) => Number(value ?? 0).toLocaleString('en-US');
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -67,19 +68,19 @@ export default function AuditLogs() {
         {/* Filters */}
         <div className="card">
           <div className="flex flex-wrap gap-3">
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="input-label">Action</label>
-              <input className="input w-40" placeholder="dataset.upload..." value={filters.action}
+              <input className="input w-full sm:w-40" placeholder="dataset.upload..." value={filters.action}
                 onChange={e => setFilters(f => ({...f, action: e.target.value}))} />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="input-label">From</label>
-              <input type="date" className="input" value={filters.from}
+              <input type="date" className="input w-full" value={filters.from}
                 onChange={e => setFilters(f => ({...f, from: e.target.value}))} />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="input-label">To</label>
-              <input type="date" className="input" value={filters.to}
+              <input type="date" className="input w-full" value={filters.to}
                 onChange={e => setFilters(f => ({...f, to: e.target.value}))} />
             </div>
             <div className="flex items-end">
@@ -91,7 +92,7 @@ export default function AuditLogs() {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="section-title">{total.toLocaleString()} Audit Events</p>
+          <p className="section-title">{formatCount(total)} Audit Events</p>
           <button onClick={exportLogs} className="btn btn-ghost btn-sm">Export CSV</button>
         </div>
 
@@ -100,7 +101,7 @@ export default function AuditLogs() {
         {/* Pagination */}
         {total > 50 && (
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-text-muted">Page {page} · {total.toLocaleString()} total</span>
+            <span className="text-xs font-mono text-text-muted">Page {page} · {formatCount(total)} total</span>
             <div className="flex gap-2">
               <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page <= 1} className="btn btn-ghost btn-sm">← Prev</button>
               <button onClick={() => setPage(p => p+1)} disabled={page * 50 >= total} className="btn btn-ghost btn-sm">Next →</button>

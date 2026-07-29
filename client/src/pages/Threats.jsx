@@ -206,7 +206,7 @@ export default function Threats() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 card">
-            <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
               <div>
                 <p className="section-title mb-1">Threat Timeline</p>
                 <p className="text-[11px] font-mono text-text-muted">
@@ -215,7 +215,7 @@ export default function Threats() {
                     : 'No threat timestamps available yet'}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end text-[11px] font-mono uppercase tracking-wider text-text-muted">
+              <div className="hidden md:flex flex-wrap gap-2 justify-end text-[11px] font-mono uppercase tracking-wider text-text-muted">
                 {THREATS.map((threat) => (
                   <span key={threat.key} className="inline-flex items-center gap-1 border border-border px-2 py-1">
                     <span className="w-2 h-2" style={{ backgroundColor: threat.color }} />
@@ -305,7 +305,7 @@ export default function Threats() {
         </div>
 
         <div className="card">
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
               <p className="section-title mb-1">Recent Threats</p>
               <p className="text-[11px] font-mono text-text-muted">

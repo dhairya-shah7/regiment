@@ -7,6 +7,7 @@ import AlertBanner from './components/ui/AlertBanner';
 import { OfflineIndicator } from './components/ui/OfflineIndicator';
 import { PwaInstallPrompt } from './components/ui/PwaInstallPrompt';
 import Login from './pages/Login';
+import LoginDemo from './pages/LoginDemo';
 import Dashboard from './pages/Dashboard';
 import Datasets from './pages/Datasets';
 import Analysis from './pages/Analysis';
@@ -52,6 +53,10 @@ export default function App() {
         <Route
           path="/login"
           element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
+        />
+        <Route
+          path="/login-demo"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginDemo />}
         />
 
         {/* Protected */}

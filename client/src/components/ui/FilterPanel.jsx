@@ -1,4 +1,6 @@
 export default function FilterPanel({ filters, setFilter, resetFilters, datasets = [] }) {
+  const safeDatasets = Array.isArray(datasets) ? datasets : [];
+
   return (
     <div className="card space-y-4">
       <div className="flex items-center justify-between">
@@ -46,12 +48,12 @@ export default function FilterPanel({ filters, setFilter, resetFilters, datasets
         </select>
       </div>
 
-      {datasets.length > 0 && (
+      {safeDatasets.length > 0 && (
         <div>
           <label className="input-label">Dataset</label>
           <select className="select" value={filters.datasetId} onChange={(e) => setFilter('datasetId', e.target.value)}>
             <option value="">All Datasets</option>
-            {datasets.map((d) => (
+            {safeDatasets.map((d) => (
               <option key={d._id} value={d._id}>{d.name}</option>
             ))}
           </select>

@@ -49,6 +49,8 @@ const anomalyResultSchema = new mongoose.Schema(
     byteRate: { type: Number },
     flags: { type: String },
     explanation: { type: mongoose.Schema.Types.Mixed },
+    attackPhase: { type: String, default: 'Suspicious Flow' },
+    sequenceTimeline: [mongoose.Schema.Types.Mixed],
     eventTimestamp: {
       type: Date,
       index: true,

@@ -200,6 +200,8 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
         rowIndex: row.index,
         status: 'new',
         explanation: normalizeExplanation(row.explanation),
+        attackPhase: row.attack_phase || 'Suspicious Flow',
+        sequenceTimeline: Array.isArray(row.sequence_timeline) ? row.sequence_timeline : [],
       };
     });
 

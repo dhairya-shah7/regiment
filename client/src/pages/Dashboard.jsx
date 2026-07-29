@@ -109,14 +109,14 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 card">
-            <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
               <div>
                 <p className="section-title mb-1">Traffic Volume / Anomaly Timeline</p>
                 <p className="text-[11px] font-mono text-text-muted">
                   {selectedDataset ? `${selectedDatasetName} · ${timeRangeText}` : timeRangeText}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end">
+              <div className="flex flex-wrap gap-2">
                 {viewOptions.map((option) => (
                   <button
                     key={option.key}

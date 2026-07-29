@@ -43,6 +43,16 @@
     color-scheme: light;
   }
 
+  /* Table styling fixes */
+  table {
+    border-collapse: collapse;
+  }
+
+  th, td {
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+  }
+
   ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -91,7 +101,7 @@
   .card-lg>h4,
   .card-lg>h5,
   .card-lg>h6 {
-    font-family: "Burgid", 'Montserrat', sans-serif;
+    font-family: 'Montserrat', "Burgid", sans-serif;
     font-weight: 600;
   }
 

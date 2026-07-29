@@ -7,6 +7,7 @@ import uuid
 import json
 import asyncio
 import threading
+import time
 import re
 from pathlib import Path
 from typing import Optional
@@ -22,6 +23,8 @@ from dotenv import load_dotenv
 
 from models.isolation_forest import IsolationForestModel
 from models.svm import OneClassSVMModel
+from models.sequence_lstm import TemporalLSTMModel
+from utils.ensemble_scorer import HybridEnsembleScorer
 from utils.dataset_adapter import DatasetAdapter
 from utils.preprocessor import Preprocessor
 
@@ -57,6 +60,8 @@ async def lifespan(app: FastAPI):
         try:
             if "svm" in model_id:
                 m = OneClassSVMModel()
+            elif "sequence" in model_id or "lstm" in model_id or "temporal" in model_id:
+                m = TemporalLSTMModel()
             else:
                 m = IsolationForestModel()
             m.load(str(model_file))
@@ -78,30 +83,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
-def _split_origins(value: str):
-    return [item.strip() for item in str(value or "").split(",") if item.strip()]
-
-
-def get_allowed_origins():
-    origins = {
-        "http://localhost:4000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:4000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    }
-
-    for env_name in ("CLIENT_URL", "CLIENT_URLS", "FRONTEND_URL", "CORS_ORIGINS"):
-        origins.update(_split_origins(os.getenv(env_name, "")))
-
-    return sorted(origins)
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_allowed_origins(),
+    allow_origins=["http://localhost:4000", "http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -364,11 +348,28 @@ def load_job_store() -> dict:
         return {}
 
 
+def _save_job_store_to_disk() -> None:
+    """Safely and atomically persist job_store to disk on Windows."""
+    try:
+        payload = json.dumps(job_store, ensure_ascii=False, indent=2)
+        tmp_path = JOB_STORE_PATH.with_suffix(".json.tmp")
+        tmp_path.write_text(payload, encoding="utf-8")
+        for attempt in range(3):
+            try:
+                os.replace(tmp_path, JOB_STORE_PATH)
+                break
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.05)
+    except Exception as exc:
+        print(f"[ML] Warning: Failed to persist job store to disk ({exc})")
+
+
 def persist_job_store() -> None:
     """Persist job state to disk so restarts do not lose queued jobs."""
     with job_store_lock:
-        payload = json.dumps(job_store, ensure_ascii=False, indent=2)
-        JOB_STORE_PATH.write_text(payload, encoding="utf-8")
+        _save_job_store_to_disk()
 
 
 def set_job_state(job_id: str, **updates) -> dict:
@@ -380,8 +381,7 @@ def set_job_state(job_id: str, **updates) -> dict:
         )
         current.update(updates)
         job_store[job_id] = current
-        payload = json.dumps(job_store, ensure_ascii=False, indent=2)
-        JOB_STORE_PATH.write_text(payload, encoding="utf-8")
+        _save_job_store_to_disk()
         return current
 
 
@@ -402,6 +402,8 @@ def _run_training_job(job_id: str, df: pd.DataFrame, req: TrainRequest):
         # Train model
         if req.model_type == "one_class_svm":
             model = OneClassSVMModel(nu=req.contamination)
+        elif req.model_type in {"temporal_hybrid", "sequence_lstm"}:
+            model = TemporalLSTMModel()
         else:
             model = IsolationForestModel(contamination=req.contamination)
 
@@ -455,7 +457,7 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
         set_job_state(job_id, progress=25, message="Preprocessing prediction data")
 
         preprocessor = Preprocessor()
-        X, _, _ = preprocessor.fit_transform(df)
+        X, _, feature_names = preprocessor.fit_transform(df)
         total_records = len(df)
         model = get_model(model_id)
         if model is None:
@@ -472,11 +474,21 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
         normal_count = 0
         threat_breakdown: dict = {}
 
+        # Initialize temporal sequence evaluator
+        seq_model = TemporalLSTMModel()
+        seq_model.fit(X, feature_names=feature_names)
+        scores_seq = seq_model.score_samples(X)
+        scores_point = model.score_samples(X)
+        scores_rule = np.array([
+            0.9 if ("syn" in str(row).lower() or "burst" in str(row).lower()) else 0.1
+            for _, row in df.iterrows()
+        ])
+        fused_scores = HybridEnsembleScorer.evaluate_batch(scores_point, scores_seq, scores_rule)
+
         for batch_index, start in enumerate(range(0, total_records, batch_size), start=1):
             end = min(start + batch_size, total_records)
             x_batch = X[start:end]
             batch_predictions = model.predict(x_batch)
-            batch_scores = model.score_samples(x_batch)
             set_job_state(
                 job_id,
                 progress=25 + int((batch_index / total_batches) * 65),
@@ -486,7 +498,8 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
             for offset, i in enumerate(range(start, end)):
                 canonical_row = df.iloc[i]
                 raw_row = df_raw.iloc[i] if i < len(df_raw) else canonical_row
-                risk = float(batch_scores[offset])
+                risk = float(fused_scores[i])
+                seq_risk = float(scores_seq[i])
                 classification = (
                     "critical" if risk > 0.7
                     else "suspicious" if risk > 0.4
@@ -496,7 +509,21 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
                 dst_ip = extract_ip(raw_row, canonical_row, "dst")
                 threat_type = detect_threat_type(raw_row, canonical_row, risk, classification)
                 explanation = build_explanation(raw_row, canonical_row, threat_type, risk, classification)
-                is_anomaly = bool(batch_predictions[offset] == -1)
+                is_anomaly = bool(batch_predictions[offset] == -1 or risk > 0.55)
+
+                attack_phase = HybridEnsembleScorer.classify_attack_phase(
+                    risk_score=risk,
+                    threat_type=threat_type,
+                    sequence_risk=seq_risk,
+                    signals=explanation.get("signals", [])
+                )
+                sequence_timeline = HybridEnsembleScorer.build_sequence_timeline(
+                    idx=i,
+                    df_records=df,
+                    scores_seq=scores_seq,
+                    scores_point=scores_point,
+                    window_size=5
+                )
 
                 if classification == "critical":
                     critical_count += 1
@@ -526,10 +553,12 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
                             or ""
                         ),
                         "risk_score": round(risk, 4),
-                        "decision_score": float(batch_scores[offset]),
+                        "decision_score": float(fused_scores[i]),
                         "classification": classification,
                         "threat_type": threat_type,
                         "explanation": explanation,
+                        "attack_phase": attack_phase,
+                        "sequence_timeline": sequence_timeline,
                         "is_anomaly": True,
                         "dataset_id": dataset_id,
                     })
@@ -700,6 +729,8 @@ def get_model(model_id: str):
     try:
         if "svm" in model_id:
             model = OneClassSVMModel()
+        elif "sequence" in model_id or "lstm" in model_id or "temporal" in model_id:
+            model = TemporalLSTMModel()
         else:
             model = IsolationForestModel()
         model.load(str(model_file))

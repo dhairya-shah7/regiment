@@ -70,7 +70,7 @@ const isLocalOrLanOrigin = (origin) => {
   }
 };
 
-// ─── Security headers ───────────────────────────────────────
+// â”€â”€â”€ Security headers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(
   helmet({
     crossOriginEmbedderPolicy: false,
@@ -79,13 +79,13 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
       },
     },
   })
 );
 
-// ─── CORS ───────────────────────────────────────────────────
+// â”€â”€â”€ CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -100,7 +100,7 @@ app.use(
   })
 );
 
-// ─── Rate limiting ──────────────────────────────────────────
+// â”€â”€â”€ Rate limiting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: Number(process.env.API_RATE_LIMIT_MAX || (process.env.NODE_ENV === 'production' ? 300 : 1000)),
@@ -122,18 +122,18 @@ const authLimiter = rateLimit({
 app.use('/api', limiter);
 app.use('/api/auth', authLimiter);
 
-// ─── Body parsing ───────────────────────────────────────────
+// â”€â”€â”€ Body parsing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// ─── Uploads dir ────────────────────────────────────────────
+// â”€â”€â”€ Uploads dir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ─── Routes ─────────────────────────────────────────────────
+// â”€â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use('/api/auth', authRoutes);
 app.use('/api/dataset', datasetRoutes);
 app.use('/api/analysis', analysisRoutes);
@@ -141,27 +141,8 @@ app.use('/api/anomalies', anomalyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/system', systemRoutes);
-const clientDistPath = path.resolve(__dirname, '../../client/dist');
-const clientIndexPath = path.join(clientDistPath, 'index.html');
 
-if (fs.existsSync(clientIndexPath)) {
-  app.use(
-    express.static(clientDistPath, {
-      maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
-      index: false,
-    })
-  );
-
-  app.get(/^(?!\/api(?:\/|$)|\/health(?:\/|$)).*/, (req, res, next) => {
-    if (req.method !== 'GET' || !req.accepts('html')) {
-      return next();
-    }
-
-    return res.sendFile(clientIndexPath);
-  });
-}
-
-// ─── Health check ───────────────────────────────────────────
+// â”€â”€â”€ Health check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'regiment-api', timestamp: new Date().toISOString() });
 });
@@ -171,7 +152,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND' });
 });
 
-// ─── Central error handler ──────────────────────────────────
+// â”€â”€â”€ Central error handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use(errorHandler);
 
 module.exports = app;

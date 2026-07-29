@@ -2,7 +2,8 @@ import { useUIStore } from '../../store/uiStore';
 
 export default function AlertBanner() {
   const { alerts, dismissAlert } = useUIStore();
-  const critical = alerts.filter((a) => a.level === 'critical');
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const critical = safeAlerts.filter((a) => a.level === 'critical');
   if (critical.length === 0) return null;
 
   return (

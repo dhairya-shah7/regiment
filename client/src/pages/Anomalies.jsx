@@ -4,6 +4,7 @@ import DataTable from '../components/ui/DataTable';
 import RiskBadge from '../components/ui/RiskBadge';
 import FilterPanel from '../components/ui/FilterPanel';
 import ExportButton from '../components/ui/ExportButton';
+import SequenceTimeline from '../components/ui/SequenceTimeline';
 import { useAnomalies } from '../hooks/useAnomalies';
 import { useWebSocket } from '../hooks/useWebSocket';
 import api from '../services/api';
@@ -21,10 +22,13 @@ export default function Anomalies() {
     resetFilters,
     flagAnomaly,
   } = useAnomalies();
+
   const [datasets, setDatasets] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [timelineAnomaly, setTimelineAnomaly] = useState(null);
   const [flagForm, setFlagForm] = useState({ status: '', analystNote: '' });
   const [flagging, setFlagging] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   useWebSocket();
 
   useEffect(() => {
@@ -45,6 +49,8 @@ export default function Anomalies() {
     }
     return value;
   };
+
+  const formatCount = (value) => Number(value ?? 0).toLocaleString('en-US');
 
   const columns = [
     {
@@ -78,6 +84,15 @@ export default function Anomalies() {
       ),
     },
     {
+      key: 'attackPhase',
+      label: 'Attack Phase',
+      render: (v) => (
+        <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-accent/40 bg-accent/10 text-accent">
+          {v || 'Suspicious Flow'}
+        </span>
+      ),
+    },
+    {
       key: 'threatType',
       label: 'Threat Type',
       render: (v) => <span className="text-xs font-mono uppercase text-accent">{v?.replace(/_/g, ' ') || '—'}</span>,
@@ -100,15 +115,31 @@ export default function Anomalies() {
 
   return (
     <PageWrapper title="/ anomalies / browse">
-      <div className="flex gap-5">
-        <div className="w-52 shrink-0">
+      <div className="flex flex-col md:flex-row gap-5">
+        {/* Mobile filter toggle */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className="btn btn-ghost btn-sm w-full justify-center"
+          >
+            {showFilters ? '✕ Hide Filters' : '⊟ Show Filters'}
+          </button>
+          {showFilters && (
+            <div className="mt-3">
+              <FilterPanel filters={filters} setFilter={setFilter} resetFilters={resetFilters} datasets={datasets} />
+            </div>
+          )}
+        </div>
+
+        {/* Desktop sidebar filter */}
+        <div className="hidden md:block w-52 shrink-0">
           <FilterPanel filters={filters} setFilter={setFilter} resetFilters={resetFilters} datasets={datasets} />
         </div>
 
         <div className="flex-1 min-w-0 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="section-title">{total.toLocaleString()} Anomaly Records</p>
+              <p className="section-title">{formatCount(total)} Anomaly Records</p>
               <p className="text-[11px] font-mono text-text-muted">Use the quick view to switch between all anomalies and critical threats.</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -140,7 +171,7 @@ export default function Anomalies() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-xs font-mono text-text-muted">
-                Page {page} of {totalPages} · {total.toLocaleString()} total
+                Page {page} of {totalPages} · {formatCount(total)} total
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} className="btn btn-ghost btn-sm">← Prev</button>
@@ -153,7 +184,7 @@ export default function Anomalies() {
 
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="modal-shell w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fade-in p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-shell w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fade-in p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-display font-semibold text-text-primary uppercase tracking-wider">
                 Anomaly Detail
@@ -161,12 +192,13 @@ export default function Anomalies() {
               <button onClick={() => setSelected(null)} className="text-text-muted hover:text-text-primary">✕</button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4 text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 text-xs font-mono">
               {[
                 ['Source IP', formatIp(selected.srcIp)],
                 ['Destination IP', formatIp(selected.dstIp)],
                 ['Protocol', selected.protocol],
                 ['Threat Type', selected.threatType?.replace(/_/g, ' ')],
+                ['Attack Phase', selected.attackPhase || 'Suspicious Flow'],
                 ['Risk Score', selected.riskScore?.toFixed(4)],
                 ['Event Time', selected.eventTimestamp || selected.detectedAt],
                 ['Classification', selected.classification],
@@ -178,7 +210,7 @@ export default function Anomalies() {
               ].map(([k, v]) => (
                 <div key={k}>
                   <p className="text-text-muted uppercase tracking-wider text-xs mb-0.5">{k}</p>
-                  <p className="text-text-primary">{v || '—'}</p>
+                  <p className="text-text-primary break-words">{v || '—'}</p>
                 </div>
               ))}
             </div>
@@ -198,6 +230,19 @@ export default function Anomalies() {
                 )}
               </div>
             )}
+
+            <div className="border-t border-border pt-4 mb-4">
+              <button
+                onClick={() => {
+                  const item = selected;
+                  setSelected(null);
+                  setTimelineAnomaly(item);
+                }}
+                className="btn btn-primary w-full justify-center text-xs"
+              >
+                ⚡ View Temporal Sequence Timeline & Progression
+              </button>
+            </div>
 
             <div className="border-t border-border pt-4 space-y-3">
               <p className="section-title">Analyst Review</p>
@@ -232,6 +277,14 @@ export default function Anomalies() {
           </div>
         </div>
       )}
+
+      {timelineAnomaly && (
+        <SequenceTimeline
+          anomaly={timelineAnomaly}
+          onClose={() => setTimelineAnomaly(null)}
+        />
+      )}
     </PageWrapper>
   );
 }
+

@@ -26,7 +26,7 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"Burgid"', 'Montserrat', 'system-ui', 'sans-serif'],
+        display: ['Montserrat', '"Burgid"', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
         sans: ['Montserrat', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
