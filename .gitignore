@@ -55,5 +55,4 @@ build/
 Thumbs.db
 .kilo/
 .ruff_cache/
-client/src/assets/signal-*.jpeg
 
