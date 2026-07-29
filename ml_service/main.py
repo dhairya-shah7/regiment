@@ -1,6 +1,6 @@
 """
-SentinelOps ML Service — FastAPI Application
-Isolation Forest + One-Class SVM anomaly detection
+Regiment ML Service — FastAPI Application
+Isolation Forest + One-Class SVM anomaly detection (memory-optimised for 512 MB hosting)
 """
 import os
 import uuid
@@ -64,15 +64,26 @@ async def lifespan(app: FastAPI):
     models.clear()
 
 
+# Max rows to process per CSV upload — prevents OOM on free-tier hosting (512 MB)
+MAX_ROWS = int(os.getenv("ML_MAX_ROWS", "20000"))
+# Max models to keep in RAM at once (LRU eviction)
+MAX_MODELS_IN_RAM = int(os.getenv("ML_MAX_MODELS_IN_RAM", "2"))
+
 app = FastAPI(
-    title="SentinelOps ML Service",
+    title="Regiment ML Service",
     description="Anomaly detection microservice for network traffic analysis",
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Allow all origins so Render + Vercel URLs both work without redeploying
+_raw_origins = os.getenv("CLIENT_URLS", "http://localhost:4000,http://localhost:5173")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000", "http://localhost:5173"],
+    allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -461,16 +472,21 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
         normal_count = 0
         threat_breakdown: dict = {}
 
-        # Initialize temporal sequence evaluator
-        seq_model = TemporalLSTMModel()
-        seq_model.fit(X, feature_names=feature_names)
-        scores_seq = seq_model.score_samples(X)
+        # ── Lightweight sequence scorer (no PyTorch / no re-train needed) ──────
+        # Uses rolling variance over the feature matrix as a proxy for temporal
+        # anomaly — zero extra RAM cost, no model training overhead.
+        scores_seq = _fast_sequence_score(X, window=5)
         scores_point = model.score_samples(X)
-        scores_rule = np.array([
-            0.9 if ("syn" in str(row).lower() or "burst" in str(row).lower()) else 0.1
-            for _, row in df.iterrows()
-        ])
+
+        # Vectorised rule signal: flag rows where any numeric feature is in the
+        # top-5 % of its column (classic burst / spike detection)
+        _top5 = np.percentile(X, 95, axis=0)
+        _rule_hits = np.any(X > _top5, axis=1).astype(np.float32) * 0.9
+        scores_rule = np.where(_rule_hits > 0, 0.9, 0.1)
         fused_scores = HybridEnsembleScorer.evaluate_batch(scores_point, scores_seq, scores_rule)
+
+        # Evict oldest model from RAM cache if limit reached
+        _evict_models_if_needed()
 
         for batch_index, start in enumerate(range(0, total_records, batch_size), start=1):
             end = min(start + batch_size, total_records)
@@ -607,6 +623,11 @@ async def train_model(
     except Exception as e:
         raise HTTPException(400, f"Failed to parse CSV: {e}")
 
+    # --- Row cap: prevent OOM from very large CSVs on free-tier hosting ---
+    if len(df_raw) > MAX_ROWS:
+        print(f"[ML] Dataset truncated from {len(df_raw)} to {MAX_ROWS} rows")
+        df_raw = df_raw.iloc[:MAX_ROWS].copy()
+
     # Adapt schema
     adapter = DatasetAdapter(dataset_source)
     try:
@@ -674,6 +695,11 @@ async def predict(
     except Exception as e:
         raise HTTPException(400, f"Failed to parse CSV: {e}")
 
+    # --- Row cap: prevent OOM from very large CSVs on free-tier hosting ---
+    if len(df_raw) > MAX_ROWS:
+        print(f"[ML] Prediction dataset truncated from {len(df_raw)} to {MAX_ROWS} rows")
+        df_raw = df_raw.iloc[:MAX_ROWS].copy()
+
     job_id = str(uuid.uuid4())
     set_job_state(
         job_id,
@@ -704,6 +730,35 @@ def get_predict_status(job_id: str):
     return job_store[job_id]
 
 
+def _fast_sequence_score(X: np.ndarray, window: int = 5) -> np.ndarray:
+    """
+    Lightweight temporal anomaly proxy — rolling window variance score.
+    No model training required, O(N) time, minimal RAM overhead.
+    Returns scores in [0, 1] where 1 = highly anomalous sequence.
+    """
+    n = X.shape[0]
+    scores = np.zeros(n, dtype=np.float32)
+    for i in range(n):
+        start = max(0, i - window + 1)
+        window_data = X[start : i + 1]
+        # Mean variance across features as anomaly proxy
+        scores[i] = float(np.mean(np.var(window_data, axis=0)))
+
+    # Normalise to [0, 1]
+    s_min, s_max = scores.min(), scores.max()
+    if s_max > s_min:
+        scores = (scores - s_min) / (s_max - s_min)
+    return scores
+
+
+def _evict_models_if_needed() -> None:
+    """Remove oldest model from in-memory cache if we exceed MAX_MODELS_IN_RAM."""
+    while len(models) > MAX_MODELS_IN_RAM:
+        oldest_key = next(iter(models))
+        del models[oldest_key]
+        print(f"[ML] Evicted model from RAM: {oldest_key}")
+
+
 def get_model(model_id: str):
     """Return a trained model from memory or disk."""
     if model_id in models:
@@ -714,6 +769,8 @@ def get_model(model_id: str):
         return None
 
     try:
+        # Evict old models before loading a new one
+        _evict_models_if_needed()
         if "svm" in model_id:
             model = OneClassSVMModel()
         elif "sequence" in model_id or "lstm" in model_id or "temporal" in model_id:
