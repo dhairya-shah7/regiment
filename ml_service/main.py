@@ -53,25 +53,12 @@ job_store_lock = threading.Lock()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load persisted models and job state on startup."""
+    """Load job state on startup without eagerly consuming RAM with all models."""
     global models, job_store
-    for model_file in MODEL_SAVE_PATH.glob("*.joblib"):
-        model_id = model_file.stem
-        try:
-            if "svm" in model_id:
-                m = OneClassSVMModel()
-            elif "sequence" in model_id or "lstm" in model_id or "temporal" in model_id:
-                m = TemporalLSTMModel()
-            else:
-                m = IsolationForestModel()
-            m.load(str(model_file))
-            models[model_id] = m
-            print(f"[ML] Loaded model: {model_id}")
-        except Exception as e:
-            print(f"[ML] Failed to load {model_id}: {e}")
     job_store = load_job_store()
     if job_store:
         print(f"[ML] Restored {len(job_store)} job records")
+    print("[ML] Service initialized (Lazy model loading active)")
     yield
     # cleanup
     models.clear()
