@@ -44,6 +44,15 @@ const getAllowedOrigins = () => {
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
 
+  try {
+    const url = new URL(origin);
+    const host = url.hostname;
+    // Automatically allow any Vercel or Render subdomains in both dev and prod
+    if (host.endsWith('.vercel.app') || host.endsWith('.onrender.com')) return true;
+  } catch (e) {
+    // Ignore invalid URLs
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     return isLocalOrLanOrigin(origin);
   }
@@ -57,6 +66,10 @@ const isLocalOrLanOrigin = (origin) => {
     if (!['http:', 'https:'].includes(url.protocol)) return false;
 
     const host = url.hostname;
+    
+    // Automatically allow any Vercel or Render subdomains (for preview deployments)
+    if (host.endsWith('.vercel.app') || host.endsWith('.onrender.com')) return true;
+
     if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
 
     // Allow private LAN ranges in development so the app works from another device on the network.
