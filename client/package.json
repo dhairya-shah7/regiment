@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "dev": "vite --configLoader native",
-    "build": "vite build --configLoader native",
+    "dev": "vite",
+    "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview --configLoader native"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@fontsource/bricolage-grotesque": "^5.2.10",
