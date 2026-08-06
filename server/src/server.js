@@ -14,11 +14,14 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);
 
+const { seedDemoDataset } = require('./utils/seedDemoDataset');
+
 // ─── MongoDB connection ──────────────────────────────────────
 mongoose
   .connect(MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log(`[DB] Connected to MongoDB: ${MONGO_URI}`);
+    await seedDemoDataset();
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.error(`[Server] Port ${PORT} is already in use. Stop the other process or change PORT in .env.`);

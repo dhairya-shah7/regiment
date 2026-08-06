@@ -127,6 +127,15 @@ export default function Datasets() {
     { key: 'status', label: 'Status', render: (v) => (
       <span className={`px-2 py-0.5 text-xs font-mono border ${STATUS_BADGE[v] || STATUS_BADGE.error}`}>{v}</span>
     )},
+    { key: 'compatibilityReport', label: 'Field Compatibility', render: (v) => {
+        const score = v?.score ?? 100;
+        const color = score >= 90 ? 'bg-success-dim text-success border-success/20' : score >= 60 ? 'bg-warning-dim text-warning border-warning/20' : 'bg-alert-dim text-alert border-alert/20';
+        return (
+          <span className={`px-2 py-0.5 text-xs font-mono border ${color}`}>
+            {score}% Match
+          </span>
+        );
+    }},
     { key: 'createdAt', label: 'Uploaded', render: (v) => v ? formatDistanceToNow(new Date(v), { addSuffix: true }) : '—' },
     { key: 'uploadedBy', label: 'By', render: (v) => v?.username || '—' },
     { key: '_id', label: '', sortable: false, render: (_, row) => (

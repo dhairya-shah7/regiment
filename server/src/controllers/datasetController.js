@@ -16,8 +16,11 @@ exports.upload = async (req, res, next) => {
     const source = normalizeSource(req.body.source);
     const { name } = req.body;
 
-    // Quick row count
-    const rowCount = await countCSVRows(req.file.path);
+    // Quick row count and compatibility inspection
+    const [rowCount, compatibilityReport] = await Promise.all([
+      countCSVRows(req.file.path),
+      inspectCSVHeaders(req.file.path),
+    ]);
 
     const dataset = await Dataset.create({
       name: name || req.file.originalname,
@@ -27,6 +30,7 @@ exports.upload = async (req, res, next) => {
       fileSize: req.file.size,
       recordCount: Math.max(0, rowCount - 1), // exclude header
       status: 'ready',
+      compatibilityReport,
     });
 
     await ingestTrafficRecords(req.file.path, dataset._id);
@@ -134,7 +138,10 @@ exports.syncLocal = async (req, res, next) => {
       throw createError(409, 'No user found to own the imported dataset', 'NO_OWNER');
     }
 
-    const rowCount = await countCSVRows(fullPath);
+    const [rowCount, compatibilityReport] = await Promise.all([
+      countCSVRows(fullPath),
+      inspectCSVHeaders(fullPath),
+    ]);
     const dataset = await Dataset.create({
       name: name || path.basename(fileName, path.extname(fileName)),
       source,
@@ -143,6 +150,7 @@ exports.syncLocal = async (req, res, next) => {
       fileSize: fs.statSync(fullPath).size,
       recordCount: Math.max(0, rowCount - 1),
       status: 'ready',
+      compatibilityReport,
     });
 
     await ingestTrafficRecords(fullPath, dataset._id);
@@ -384,3 +392,68 @@ const DST_IP_KEYS = [
   'ip_destination_address',
   'ip_destination',
 ];
+
+async function inspectCSVHeaders(filePath) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
+    let resolved = false;
+    rl.on('line', (line) => {
+      if (resolved) return;
+      resolved = true;
+      rl.close();
+      const delimiter = detectDelimiter(line);
+      const headers = parseDelimitedLine(line.replace(/^\uFEFF/, ''), delimiter).map((h) => normalizeHeader(h));
+      resolve(generateCompatibilityReport(headers));
+    });
+    rl.on('error', () => {
+      if (!resolved) {
+        resolved = true;
+        resolve({ score: 100, matchedFields: {}, missingFields: [], fallbackUsed: {}, warnings: [] });
+      }
+    });
+    rl.on('close', () => {
+      if (!resolved) {
+        resolved = true;
+        resolve({ score: 100, matchedFields: {}, missingFields: [], fallbackUsed: {}, warnings: [] });
+      }
+    });
+  });
+}
+
+function generateCompatibilityReport(headers = []) {
+  const normalizedHeaders = new Set(headers.map((h) => normalizeHeader(h)));
+
+  const requiredFields = [
+    { key: 'src_ip', aliases: ['src_ip', 'srcip', 'source_ip', 'sourceip', 'src', 'saddr', 'ip_src', 'orig_h', 'source_address'] },
+    { key: 'dst_ip', aliases: ['dst_ip', 'dstip', 'destination_ip', 'destinationip', 'dst', 'daddr', 'ip_dst', 'resp_h', 'destination_address'] },
+    { key: 'protocol', aliases: ['protocol', 'proto', 'protocol_type'] },
+    { key: 'packet_size', aliases: ['packet_size', 'src_bytes', 'sbytes', 'total_length_of_fwd_packets', 'tot_len_fwd_pkts', 'dbytes', 'smeansz'] },
+    { key: 'duration', aliases: ['duration', 'dur', 'flow_duration'] },
+    { key: 'tcp_flags', aliases: ['tcp_flags', 'flag', 'flags', 'stcpb', 'fin_flag_count', 'syn_flag_count'] },
+    { key: 'byte_rate', aliases: ['byte_rate', 'sload', 'flow_bytes_s', 'bytes_s'] },
+    { key: 'connection_state', aliases: ['connection_state', 'state', 'dst_host_srv_count', 'flow_id'] },
+    { key: 'label', aliases: ['label', 'class', 'target', 'anomaly', 'attack_cat'] },
+  ];
+
+  const matchedFields = {};
+  const missingFields = [];
+  const fallbackUsed = {};
+
+  for (const field of requiredFields) {
+    const found = field.aliases.find((alias) => normalizedHeaders.has(alias));
+    if (found) {
+      matchedFields[field.key] = found;
+      if (found !== field.key) {
+        fallbackUsed[field.key] = `Mapped from alias header '${found}'`;
+      }
+    } else {
+      missingFields.push(field.key);
+      fallbackUsed[field.key] = `Field missing — auto-derived default value applied`;
+    }
+  }
+
+  const score = Math.round(((requiredFields.length - missingFields.length) / requiredFields.length) * 100);
+  const warnings = missingFields.map((f) => `Standard field '${f}' not explicitly defined in header. Fallback active.`);
+
+  return { score, matchedFields, missingFields, fallbackUsed, warnings };
+}

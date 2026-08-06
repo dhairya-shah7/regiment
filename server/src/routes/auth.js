@@ -7,6 +7,9 @@ router.post('/register', audit('auth.register'), ctrl.register);
 router.post('/login',    audit('auth.login'),    ctrl.login);
 router.post('/logout',   verifyToken,            audit('auth.logout'), ctrl.logout);
 router.post('/refresh',  verifyRefreshToken,     ctrl.refresh);
+router.post('/forgot-password', audit('auth.forgot_password'), ctrl.forgotPassword);
+router.post('/verify-otp',      ctrl.verifyOTP);
+router.post('/reset-password',  audit('auth.reset_password'),  ctrl.resetPassword);
 router.get('/me',        verifyToken,            ctrl.me);
 
 // Admin user management

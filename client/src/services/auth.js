@@ -6,6 +6,9 @@ export const authService = {
   logout:   ()     => api.post('/auth/logout'),
   me:       ()     => api.get('/auth/me'),
   refresh:  ()     => api.post('/auth/refresh'),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  verifyOTP:      (data) => api.post('/auth/verify-otp', data),
+  resetPassword:  (data) => api.post('/auth/reset-password', data),
   getUsers: ()     => api.get('/auth/users'),
   updateUser: (id, data) => api.patch(`/auth/users/${id}`, data),
 };

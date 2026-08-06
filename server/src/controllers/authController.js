@@ -54,9 +54,9 @@ exports.register = async (req, res, next) => {
       throw createError(400, 'Password must be at least 8 characters', 'WEAK_PASSWORD');
     }
 
-    // First user gets admin role
+    // First user gets admin role, all subsequent default to analyst
     const userCount = await User.countDocuments();
-    const role = userCount === 0 ? 'admin' : 'viewer';
+    const role = userCount === 0 ? 'admin' : 'analyst';
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const user = await User.create({ username, email, passwordHash, role });
@@ -71,6 +71,112 @@ exports.register = async (req, res, next) => {
       user: { id: user._id, username: user.username, email: user.email, role: user.role },
       accessToken,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : req.body.email;
+    if (!email) {
+      throw createError(400, 'Email address is required', 'MISSING_EMAIL');
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return success even if email not found to prevent user enumeration
+      return res.json({ message: 'If an account exists for this email, a reset OTP has been sent.' });
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otpCode, 10);
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await User.findByIdAndUpdate(user._id, {
+      resetPasswordOTP: otpHash,
+      resetPasswordExpires: otpExpires,
+    });
+
+    const emailService = require('../utils/emailService');
+    await emailService.sendOTPEmail(email, otpCode);
+
+    res.json({ message: 'Password reset OTP has been sent to your email.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/verify-otp
+exports.verifyOTP = async (req, res, next) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : req.body.email;
+    const otp = String(req.body.otp || '').trim();
+
+    if (!email || !otp) {
+      throw createError(400, 'Email and OTP code are required', 'MISSING_FIELDS');
+    }
+
+    const user = await User.findOne({ email }).select('+resetPasswordOTP');
+    if (!user || !user.resetPasswordOTP || !user.resetPasswordExpires) {
+      throw createError(400, 'Invalid or expired OTP code', 'INVALID_OTP');
+    }
+
+    if (new Date() > user.resetPasswordExpires) {
+      throw createError(400, 'OTP code has expired. Please request a new code.', 'OTP_EXPIRED');
+    }
+
+    const isValid = await bcrypt.compare(otp, user.resetPasswordOTP);
+    if (!isValid) {
+      throw createError(400, 'Incorrect OTP security code', 'INVALID_OTP');
+    }
+
+    res.json({ message: 'OTP verified successfully', valid: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/reset-password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : req.body.email;
+    const otp = String(req.body.otp || '').trim();
+    const newPassword = req.body.newPassword;
+
+    if (!email || !otp || !newPassword) {
+      throw createError(400, 'Email, OTP, and new password are required', 'MISSING_FIELDS');
+    }
+    if (newPassword.length < 8) {
+      throw createError(400, 'Password must be at least 8 characters', 'WEAK_PASSWORD');
+    }
+
+    const user = await User.findOne({ email }).select('+resetPasswordOTP');
+    if (!user || !user.resetPasswordOTP || !user.resetPasswordExpires) {
+      throw createError(400, 'Invalid or expired OTP code', 'INVALID_OTP');
+    }
+
+    if (new Date() > user.resetPasswordExpires) {
+      throw createError(400, 'OTP code has expired. Please request a new code.', 'OTP_EXPIRED');
+    }
+
+    const isValid = await bcrypt.compare(otp, user.resetPasswordOTP);
+    if (!isValid) {
+      throw createError(400, 'Incorrect OTP security code', 'INVALID_OTP');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await User.findByIdAndUpdate(user._id, {
+      passwordHash,
+      resetPasswordOTP: null,
+      resetPasswordExpires: null,
+      loginAttempts: 0,
+      lockUntil: null,
+    });
+
+    res.json({ message: 'Password reset successful. You can now login with your new password.' });
   } catch (err) {
     next(err);
   }
@@ -103,7 +209,7 @@ exports.login = async (req, res, next) => {
         loginAttempts,
         ...(shouldLock ? { lockUntil: new Date(Date.now() + LOCK_TIME_MS) } : {}),
       });
-      throw createError(401, 'Invalid credentials', 'INVALID_CREDENTIALS');
+      throw createError(401, 'Invalid email or password. Please check your credentials.', 'INVALID_CREDENTIALS');
     }
 
     const { accessToken, refreshToken } = generateTokens(user);

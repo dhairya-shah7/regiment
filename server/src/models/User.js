@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ['admin', 'analyst', 'viewer'],
-      default: 'viewer',
+      default: 'analyst',
     },
     clearanceLevel: {
       type: Number,
@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema(
     refreshToken: {
       type: String,
       select: false,
+    },
+    resetPasswordOTP: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
     lastLogin: {
       type: Date,

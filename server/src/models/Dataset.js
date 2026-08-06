@@ -43,6 +43,13 @@ const datasetSchema = new mongoose.Schema(
     lastAnalyzedAt: {
       type: Date,
     },
+    compatibilityReport: {
+      score: { type: Number, default: 100 },
+      matchedFields: { type: Map, of: String },
+      missingFields: [{ type: String }],
+      fallbackUsed: { type: Map, of: String },
+      warnings: [{ type: String }],
+    },
   },
   {
     timestamps: true,

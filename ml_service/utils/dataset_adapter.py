@@ -44,31 +44,77 @@ class DatasetAdapter:
             return self._adapt_cicids(df)
         return self._adapt_generic(df)
 
+    def inspect_compatibility(self, df: pd.DataFrame) -> dict:
+        """Inspect columns of a dataset DataFrame and return a compatibility report."""
+        columns = [str(c).strip() for c in df.columns]
+        normalized_cols = {c.lower().strip().replace(" ", "_"): c for c in columns}
+
+        required_fields = ["src_ip", "dst_ip", "protocol", "packet_size", "duration", "tcp_flags", "byte_rate", "connection_state", "label"]
+        matched_fields = {}
+        missing_fields = []
+        fallback_used = {}
+
+        # Canonical aliases
+        aliases = {
+            "src_ip": ["src_ip", "srcip", "source_ip", "sourceip", "src", "saddr", "ip_src", "orig_h", "source_address"],
+            "dst_ip": ["dst_ip", "dstip", "destination_ip", "destinationip", "dst", "daddr", "ip_dst", "resp_h", "destination_address"],
+            "protocol": ["protocol", "proto", "protocol_type"],
+            "packet_size": ["packet_size", "src_bytes", "sbytes", "total_length_of_fwd_packets", "tot_len_fwd_pkts", "dbytes", "smeansz"],
+            "duration": ["duration", "dur", "flow_duration"],
+            "tcp_flags": ["tcp_flags", "flag", "flags", "stcpb", "fin_flag_count", "syn_flag_count"],
+            "byte_rate": ["byte_rate", "sload", "flow_bytes_s", "flow_bytes/s", "bytes_s"],
+            "connection_state": ["connection_state", "state", "dst_host_srv_count", "flow_id"],
+            "label": ["label", "class", "target", "anomaly", "attack_cat"],
+        }
+
+        for field in required_fields:
+            field_aliases = aliases.get(field, [field])
+            found = None
+            for alias in field_aliases:
+                norm_alias = alias.lower().replace(" ", "_")
+                if norm_alias in normalized_cols:
+                    found = normalized_cols[norm_alias]
+                    break
+            if found:
+                matched_fields[field] = found
+                if found.lower() != field:
+                    fallback_used[field] = f"Mapped from '{found}'"
+            else:
+                missing_fields.append(field)
+                fallback_used[field] = "Using synthetic default value"
+
+        score = round(((len(required_fields) - len(missing_fields)) / len(required_fields)) * 100)
+        return {
+            "score": score,
+            "matchedFields": matched_fields,
+            "missingFields": missing_fields,
+            "fallbackUsed": fallback_used,
+            "warnings": [f"Field '{f}' missing — using fallback" for f in missing_fields],
+        }
+
     def _adapt_unsw_nb15(self, df: pd.DataFrame) -> pd.DataFrame:
-        """UNSW-NB15: 49 features."""
+        """UNSW-NB15: 49 features standard dataset."""
         mapping = {
-            # source col → canonical col
             "srcip": "src_ip",
             "dstip": "dst_ip",
             "proto": "protocol",
-            "sbytes": "packet_size",   # source bytes as proxy
+            "sbytes": "packet_size",
+            "dbytes": "_dbytes",
             "dur": "duration",
-            "stcpb": "tcp_flags",      # TCP base sequence number proxy
-            "Sload": "byte_rate",      # bits per second (source load)
+            "stcpb": "tcp_flags",
+            "Sload": "byte_rate",
+            "sload": "byte_rate",
             "state": "connection_state",
             "label": "label",
+            "Label": "label",
             "attack_cat": "_attack_cat",
         }
-        # Some files use 'Label' with capital L
-        if "Label" in df.columns and "label" not in df.columns:
-            df = df.rename(columns={"Label": "label"})
-
         df = self._remap(df, mapping)
         df["label"] = df["label"].apply(lambda x: "normal" if str(x).strip() in ["0", "Normal", "normal", ""] else "anomaly")
         return df
 
     def _adapt_nsl_kdd(self, df: pd.DataFrame) -> pd.DataFrame:
-        """NSL-KDD: 43 columns, often no header."""
+        """NSL-KDD: 43 columns, header or headerless."""
         NSL_KDD_COLS = [
             "duration", "protocol_type", "service", "flag", "src_bytes",
             "dst_bytes", "land", "wrong_fragment", "urgent", "hot",
@@ -92,12 +138,14 @@ class DatasetAdapter:
             "src_bytes": "packet_size",
             "flag": "tcp_flags",
             "dst_host_srv_count": "connection_state",
+            "class": "label",
         }
         df = self._remap(df, mapping)
 
-        # Fill missing canonical cols
-        df["src_ip"] = "0.0.0.0"
-        df["dst_ip"] = "0.0.0.0"
+        if "src_ip" not in df.columns or df["src_ip"].isna().all():
+            df["src_ip"] = "0.0.0.0"
+        if "dst_ip" not in df.columns or df["dst_ip"].isna().all():
+            df["dst_ip"] = "0.0.0.0"
         df["byte_rate"] = df.get("packet_size", pd.Series(0)) / (df.get("duration", pd.Series(1)).replace(0, 1))
         df["label"] = df["label"].apply(lambda x: "normal" if str(x).strip().lower() == "normal" else "anomaly")
         return df
@@ -135,29 +183,28 @@ class DatasetAdapter:
         mapping = {}
         for col in df.columns:
             key = col.lower().strip()
-            if key in {"src_ip", "srcip", "source_ip", "sourceip", "src", "source"}:
+            if key in {"src_ip", "srcip", "source_ip", "sourceip", "src", "source", "saddr", "ip_src"}:
                 mapping[col] = "src_ip"
-            elif key in {"dst_ip", "dstip", "destination_ip", "destinationip", "dst", "destination"}:
+            elif key in {"dst_ip", "dstip", "destination_ip", "destinationip", "dst", "destination", "daddr", "ip_dst"}:
                 mapping[col] = "dst_ip"
-            elif key in {"protocol", "proto"}:
+            elif key in {"protocol", "proto", "protocol_type"}:
                 mapping[col] = "protocol"
-            elif key in {"packet_size", "packet", "size", "src_bytes", "sbytes"}:
+            elif key in {"packet_size", "packet", "size", "src_bytes", "sbytes", "total_length_of_fwd_packets"}:
                 mapping[col] = "packet_size"
             elif key in {"duration", "dur", "flow_duration"}:
                 mapping[col] = "duration"
-            elif key in {"tcp_flags", "flags", "flag"}:
+            elif key in {"tcp_flags", "flags", "flag", "stcpb", "fin_flag_count"}:
                 mapping[col] = "tcp_flags"
             elif key in {"byte_rate", "flow_bytes_s", "bytes_s", "sload", "rate"}:
                 mapping[col] = "byte_rate"
-            elif key in {"connection_state", "state", "conn_state"}:
+            elif key in {"connection_state", "state", "conn_state", "dst_host_srv_count", "flow_id"}:
                 mapping[col] = "connection_state"
-            elif key in {"label", "class", "target", "anomaly"}:
+            elif key in {"label", "class", "target", "anomaly", "attack_cat"}:
                 mapping[col] = "label"
 
         df = df.rename(columns=mapping)
         df = self._remap(df, {})
 
-        # Add best-effort defaults if the file doesn't contain network context.
         if "src_ip" not in df.columns:
             df["src_ip"] = "0.0.0.0"
         if "dst_ip" not in df.columns:
@@ -195,3 +242,4 @@ class DatasetAdapter:
                 df[col] = np.nan if col not in ["src_ip", "dst_ip", "protocol", "connection_state", "label"] else "unknown"
 
         return df[canonical + [c for c in df.columns if c not in canonical and not c.startswith("_")]]
+
