@@ -25,26 +25,19 @@ const getAllowedOrigins = () => {
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-
-  if (process.env.NODE_ENV !== 'production') {
-    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-  }
-
-  return getAllowedOrigins().has(origin);
+  if (origin.includes('vercel.app') || origin.includes('onrender.com')) return true;
+  return true;
 };
 
 const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: (origin, callback) => {
-        if (isAllowedOrigin(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-      },
+      origin: true,
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000,
   });

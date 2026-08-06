@@ -58,3 +58,4 @@ Thumbs.db
 .kilo/
 .ruff_cache/
 
+scripts/generate_nsl_kdd_hard.py
