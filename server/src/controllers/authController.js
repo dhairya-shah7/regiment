@@ -48,10 +48,20 @@ exports.register = async (req, res, next) => {
     const password = req.body.password;
 
     if (!username || !email || !password) {
-      throw createError(400, 'username, email and password are required', 'MISSING_FIELDS');
+      throw createError(400, 'Username, email and password are required', 'MISSING_FIELDS');
     }
     if (password.length < 8) {
       throw createError(400, 'Password must be at least 8 characters', 'WEAK_PASSWORD');
+    }
+
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      throw createError(409, `An account with ${email} already exists. Please Sign In or click Forgot Password.`, 'EMAIL_EXISTS');
+    }
+
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      throw createError(409, `Username '${username}' is already taken. Please choose a different username.`, 'USERNAME_EXISTS');
     }
 
     // First user gets admin role, all subsequent default to analyst
@@ -65,6 +75,10 @@ exports.register = async (req, res, next) => {
     await User.findByIdAndUpdate(user._id, { refreshToken, lastLogin: new Date() });
 
     setRefreshCookie(res, refreshToken);
+
+    // Auto-seed demo dataset if database has 0 datasets
+    const { seedDemoDataset } = require('../utils/seedDemoDataset');
+    await seedDemoDataset(user._id);
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -192,7 +206,7 @@ exports.login = async (req, res, next) => {
 
     const user = await User.findOne({ email }).select('+passwordHash');
     if (!user || !user.isActive) {
-      throw createError(401, 'Invalid credentials', 'INVALID_CREDENTIALS');
+      throw createError(401, `No registered account found with email ${email}. Please check your email or click Register to join.`, 'USER_NOT_FOUND');
     }
 
     if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
@@ -208,7 +222,7 @@ exports.login = async (req, res, next) => {
         loginAttempts,
         ...(shouldLock ? { lockUntil: new Date(Date.now() + LOCK_TIME_MS) } : {}),
       });
-      throw createError(401, 'Invalid email or password. Please check your credentials.', 'INVALID_CREDENTIALS');
+      throw createError(401, 'Incorrect password. Please check your password or click Forgot Password.', 'INVALID_CREDENTIALS');
     }
 
     const { accessToken, refreshToken } = generateTokens(user);

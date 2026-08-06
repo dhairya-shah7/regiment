@@ -50,6 +50,12 @@ exports.upload = async (req, res, next) => {
 // GET /api/dataset
 exports.list = async (req, res, next) => {
   try {
+    let count = await Dataset.countDocuments();
+    if (count === 0) {
+      const { seedDemoDataset } = require('../utils/seedDemoDataset');
+      await seedDemoDataset(req.user?._id);
+    }
+
     const { page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
