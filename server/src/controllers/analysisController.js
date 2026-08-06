@@ -58,7 +58,7 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   updateJob(jobId, { status: 'running', percent: 5, stage: 'Sending to ML service' });
   emitAnalysisProgress(jobId, 5, 'Sending to ML service');
 
-  const form = buildCsvForm(FormData, dataset.filePath);
+  const form = await buildCsvForm(FormData, dataset);
 
   updateJob(jobId, { percent: 15, stage: 'Training model' });
   emitAnalysisProgress(jobId, 15, 'Training model');
@@ -301,9 +301,69 @@ async function requestWithRetry(requestFn, label, attempts = 3) {
   throw lastError;
 }
 
-function buildCsvForm(FormDataCtor, filePath) {
+async function buildCsvForm(FormDataCtor, dataset) {
+  const path = require('path');
+  const { Readable } = require('stream');
   const form = new FormDataCtor();
-  form.append('file', fs.createReadStream(filePath), {
+  const rawPath = dataset.filePath;
+
+  let stream = null;
+
+  // 1. Try resolving disk path
+  if (rawPath && !rawPath.startsWith('inline://')) {
+    const candidates = [
+      rawPath,
+      path.resolve(process.cwd(), rawPath),
+      path.resolve(__dirname, '../', rawPath),
+      path.resolve(__dirname, '../../', rawPath),
+      path.resolve(__dirname, '../../../', rawPath),
+      path.resolve('/tmp', path.basename(rawPath)),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        stream = fs.createReadStream(candidate);
+        break;
+      }
+    }
+  }
+
+  // 2. Fallback: Reconstruct CSV from MongoDB TrafficRecord documents if disk file is missing on ephemeral cloud servers
+  if (!stream) {
+    console.log(`[Analysis] Disk file missing for dataset ${dataset._id}. Reconstructing CSV from database records...`);
+    const records = await TrafficRecord.find({ datasetId: dataset._id }).sort({ rowIndex: 1 }).lean();
+    if (records && records.length > 0) {
+      const headers = ['src_ip', 'dst_ip', 'protocol', 'packet_size', 'duration', 'tcp_flags', 'byte_rate', 'connection_state', 'label'];
+      const lines = [headers.join(',')];
+      for (const r of records) {
+        lines.push([
+          r.srcIp || '0.0.0.0',
+          r.dstIp || '0.0.0.0',
+          r.protocol || 'tcp',
+          r.packetSize ?? 0,
+          r.duration ?? 0,
+          r.flags || 'SF',
+          r.byteRate ?? 0,
+          r.connectionState || 'established',
+          r.label || 'normal',
+        ].join(','));
+      }
+      stream = Readable.from(lines.join('\n'));
+    }
+  }
+
+  // 3. Fallback: Demo dataset inline fallback
+  if (!stream && dataset.name.includes('Demo')) {
+    const { INLINE_DEMO_CSV } = require('../utils/seedDemoDataset');
+    if (INLINE_DEMO_CSV) {
+      stream = Readable.from(INLINE_DEMO_CSV);
+    }
+  }
+
+  if (!stream) {
+    throw new Error(`Dataset CSV file not found on disk and no records available in database.`);
+  }
+
+  form.append('file', stream, {
     filename: 'dataset.csv',
     contentType: 'text/csv',
   });
