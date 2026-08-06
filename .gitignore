@@ -26,6 +26,8 @@ server/uploads/*
 datasets/raw/
 datasets/canonical/
 datasets/*.csv
+!datasets/demo_defense_dataset.csv
+!server/src/data/demo_defense_dataset.csv
 ml_service/data/saved_models/
 ml_service/data/*.csv
 
