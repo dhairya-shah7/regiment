@@ -6,7 +6,8 @@ import toast from 'react-hot-toast';
 import loginVideo from '../assets/regi.mp4';
 
 export default function Login() {
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -61,11 +62,30 @@ export default function Login() {
     };
   }, []);
 
-  const handleModeChange = (newMode) => {
+  const handleTabChange = (newMode) => {
     setMode(newMode);
+    setIsForgotPassword(false);
     setErrorMessage('');
     setSuccessMessage('');
     setForgotStep(1);
+    setOtp('');
+    setNewPassword('');
+  };
+
+  const handleStartForgotPassword = () => {
+    setIsForgotPassword(true);
+    setForgotStep(1);
+    setErrorMessage('');
+    setSuccessMessage('');
+    setOtp('');
+    setNewPassword('');
+  };
+
+  const handleCancelForgotPassword = () => {
+    setIsForgotPassword(false);
+    setForgotStep(1);
+    setErrorMessage('');
+    setSuccessMessage('');
     setOtp('');
     setNewPassword('');
   };
@@ -77,7 +97,20 @@ export default function Login() {
     setSuccessMessage('');
     try {
       const email = form.email.trim().toLowerCase();
-      if (mode === 'login') {
+      if (isForgotPassword) {
+        if (forgotStep === 1) {
+          const res = await authService.forgotPassword({ email });
+          setSuccessMessage(res.data.message || 'Security OTP code sent to your email.');
+          setForgotStep(2);
+        } else {
+          const res = await authService.resetPassword({ email, otp, newPassword });
+          setSuccessMessage(res.data.message || 'Password reset successful.');
+          toast.success('Password updated! You can now sign in.');
+          setTimeout(() => {
+            handleCancelForgotPassword();
+          }, 1500);
+        }
+      } else if (mode === 'login') {
         await login(email, form.password);
         toast.success('Access granted');
         navigate('/');
@@ -85,22 +118,9 @@ export default function Login() {
         await register(form.username.trim(), email, form.password);
         toast.success('Account created');
         navigate('/');
-      } else if (mode === 'forgot') {
-        if (forgotStep === 1) {
-          const res = await authService.forgotPassword({ email });
-          setSuccessMessage(res.data.message || 'OTP code sent to your email address.');
-          setForgotStep(2);
-        } else {
-          const res = await authService.resetPassword({ email, otp, newPassword });
-          setSuccessMessage(res.data.message || 'Password reset successful. Please sign in.');
-          toast.success('Password reset successful');
-          setTimeout(() => {
-            handleModeChange('login');
-          }, 1500);
-        }
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Authentication failed. Please check your credentials.';
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Authentication failed. Please check your details.';
       setErrorMessage(msg);
       toast.error(msg);
     } finally {
@@ -294,7 +314,7 @@ export default function Login() {
           pointer-events: none;
         }
 
-        /* ── TABS ── */
+        /* ── TABS (Only 2 Tabs: Sign In & Register) ── */
         .sl-tabs {
           display: flex;
           background: rgba(65,67,27,0.07);
@@ -384,7 +404,7 @@ export default function Login() {
           cursor: pointer;
           padding: 0;
           text-decoration: underline;
-          opacity: 0.75;
+          opacity: 0.8;
           transition: opacity 0.2s;
         }
         .sl-forgot-link:hover { opacity: 1; }
@@ -557,32 +577,38 @@ export default function Login() {
           {/* Card */}
           <div className="sl-card">
 
-            {/* Tabs */}
+            {/* Top Tabs: ONLY Sign In & Register */}
             <div className="sl-tabs">
-              {['login', 'register', 'forgot'].map((m) => (
+              {['login', 'register'].map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => handleModeChange(m)}
-                  className={`sl-tab${mode === m ? ' active' : ''}`}
+                  onClick={() => handleTabChange(m)}
+                  className={`sl-tab${mode === m && !isForgotPassword ? ' active' : ''}`}
                 >
-                  {m === 'login' ? 'Sign In' : m === 'register' ? 'Register' : 'Reset Pass'}
+                  {m === 'login' ? 'Sign In' : 'Register'}
                 </button>
               ))}
             </div>
 
-            <p className="sl-card-eyebrow">Operator Access</p>
+            <p className="sl-card-eyebrow">
+              {isForgotPassword ? 'Password Recovery' : 'Operator Access'}
+            </p>
             <p className="sl-card-title">
-              {mode === 'login' ? 'Welcome back.' : mode === 'register' ? 'Join the unit.' : 'Reset Password'}
+              {isForgotPassword
+                ? 'Reset Password'
+                : mode === 'login'
+                ? 'Welcome back.'
+                : 'Join the unit.'}
             </p>
             <p className="sl-card-sub">
-              {mode === 'login'
+              {isForgotPassword
+                ? forgotStep === 1
+                  ? 'Enter your email to receive a 6-digit OTP code'
+                  : 'Enter the 6-digit OTP code sent to your email & your new password'
+                : mode === 'login'
                 ? 'Sign in to your operator account'
-                : mode === 'register'
-                ? 'Create your operator account'
-                : forgotStep === 1
-                ? 'Enter your email to receive a 6-digit OTP'
-                : 'Enter the OTP sent to your email & new password'}
+                : 'Create your operator account'}
             </p>
 
             {/* On-Screen Error Alert Box */}
@@ -606,7 +632,8 @@ export default function Login() {
               onSubmit={handleSubmit}
               style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
             >
-              {mode === 'register' && (
+              {/* Register Mode Field */}
+              {mode === 'register' && !isForgotPassword && (
                 <div>
                   <label className="sl-label">Username</label>
                   <input
@@ -621,24 +648,24 @@ export default function Login() {
                 </div>
               )}
 
-              {(mode === 'login' || mode === 'register' || mode === 'forgot') && (
-                <div>
-                  <label className="sl-label">Email Address</label>
-                  <input
-                    className="sl-input"
-                    type="email"
-                    placeholder="analyst@sentinelops.mil"
-                    value={form.email}
-                    onChange={(e) => {
-                      setForm({ ...form, email: e.target.value.toLowerCase() });
-                      setErrorMessage('');
-                    }}
-                    required
-                  />
-                </div>
-              )}
+              {/* Email Address Field (Present in Sign In, Register & Forgot Password) */}
+              <div>
+                <label className="sl-label">Email Address</label>
+                <input
+                  className="sl-input"
+                  type="email"
+                  placeholder="analyst@sentinelops.mil"
+                  value={form.email}
+                  onChange={(e) => {
+                    setForm({ ...form, email: e.target.value.toLowerCase() });
+                    setErrorMessage('');
+                  }}
+                  required
+                />
+              </div>
 
-              {(mode === 'login' || mode === 'register') && (
+              {/* Standard Password Field (Sign In & Register) */}
+              {!isForgotPassword && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <label className="sl-label">Password</label>
@@ -646,7 +673,7 @@ export default function Login() {
                       <button
                         type="button"
                         className="sl-forgot-link"
-                        onClick={() => handleModeChange('forgot')}
+                        onClick={handleStartForgotPassword}
                       >
                         Forgot Password?
                       </button>
@@ -667,16 +694,20 @@ export default function Login() {
                 </div>
               )}
 
-              {mode === 'forgot' && forgotStep === 2 && (
+              {/* Forgot Password Step 2 Fields: OTP & New Password */}
+              {isForgotPassword && forgotStep === 2 && (
                 <>
                   <div>
-                    <label className="sl-label">6-Digit OTP Security Code</label>
+                    <label className="sl-label">6-Digit Security OTP</label>
                     <input
                       className="sl-input"
                       type="text"
                       placeholder="123456"
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value.trim())}
+                      onChange={(e) => {
+                        setOtp(e.target.value.trim());
+                        setErrorMessage('');
+                      }}
                       required
                       maxLength={6}
                     />
@@ -688,7 +719,10 @@ export default function Login() {
                       type="password"
                       placeholder="••••••••"
                       value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setErrorMessage('');
+                      }}
                       required
                       minLength={8}
                     />
@@ -696,34 +730,35 @@ export default function Login() {
                 </>
               )}
 
+              {/* Submit Button */}
               <button type="submit" disabled={loading} className="sl-btn">
                 <span>
                   {loading
                     ? '⟳ Processing...'
+                    : isForgotPassword
+                    ? forgotStep === 1
+                      ? 'Send Security OTP'
+                      : 'Update Password'
                     : mode === 'login'
                     ? 'Authenticate'
-                    : mode === 'register'
-                    ? 'Create Account'
-                    : forgotStep === 1
-                    ? 'Send OTP Code'
-                    : 'Update Password'}
+                    : 'Create Account'}
                 </span>
                 {!loading && <span style={{ fontSize: 16 }}>→</span>}
               </button>
             </form>
 
-            {mode === 'register' && (
+            {mode === 'register' && !isForgotPassword && (
               <p className="sl-note">
                 First registered user receives <span>admin</span> clearance. Default role: <span>analyst</span>.
               </p>
             )}
 
-            {mode === 'forgot' && (
-              <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            {isForgotPassword && (
+              <div style={{ textAlign: 'center', marginTop: '14px' }}>
                 <button
                   type="button"
                   className="sl-forgot-link"
-                  onClick={() => handleModeChange('login')}
+                  onClick={handleCancelForgotPassword}
                 >
                   ← Return to Sign In
                 </button>

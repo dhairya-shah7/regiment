@@ -15,7 +15,7 @@ exports.sendOTPEmail = async (toEmail, otpCode) => {
   const smtpPort = process.env.SMTP_PORT || 587;
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
-  const fromEmail = process.env.SMTP_FROM || 'no-reply@sentinelops.mil';
+  const fromEmail = process.env.SMTP_FROM || smtpUser || 'no-reply@sentinelops.mil';
 
   console.log(`\n==================================================`);
   console.log(`[AUTH] PASSWORD RESET OTP GENERATED FOR ${toEmail}`);
@@ -32,10 +32,13 @@ exports.sendOTPEmail = async (toEmail, otpCode) => {
           user: smtpUser,
           pass: smtpPass,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
       });
 
       const mailOptions = {
-        from: `"Regiment Defense System" <${fromEmail}>`,
+        from: `"Regiment Defense System" <${smtpUser || fromEmail}>`,
         to: toEmail,
         subject: 'Regiment - Password Reset Security Code (OTP)',
         html: `

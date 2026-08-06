@@ -86,8 +86,7 @@ exports.forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      // Return success even if email not found to prevent user enumeration
-      return res.json({ message: 'If an account exists for this email, a reset OTP has been sent.' });
+      throw createError(404, 'No registered account found with this email address. Please register an account first.', 'USER_NOT_FOUND');
     }
 
     // Generate 6-digit OTP
