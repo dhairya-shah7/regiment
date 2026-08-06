@@ -100,7 +100,7 @@ exports.forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      throw createError(404, 'No registered account found with this email address. Please register an account first.', 'USER_NOT_FOUND');
+      throw createError(400, 'No registered account found with this email address. Please check your email or Register first.', 'USER_NOT_FOUND');
     }
 
     // Generate 6-digit OTP
