@@ -10,6 +10,14 @@ const mlClient = axios.create({
 mlClient.interceptors.response.use(
   (res) => res,
   (err) => {
+    const status = err.response?.status;
+    if (status === 502 || status === 503 || status === 504) {
+      const e = new Error(`ML service is warming up (HTTP ${status}). Retrying connection...`);
+      e.statusCode = status;
+      e.code = 'ML_SERVICE_WARMING_UP';
+      e.response = err.response;
+      return Promise.reject(e);
+    }
     if (err.code === 'ECONNRESET') {
       const e = new Error('Connection to the ML service was reset while processing the request.');
       e.statusCode = 503;

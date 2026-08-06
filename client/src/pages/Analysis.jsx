@@ -10,6 +10,7 @@ const JOB_STATUS_STYLE = {
   running:  'text-accent',
   complete: 'text-success',
   failed:   'text-alert',
+  cancelled:'text-alert opacity-75',
 };
 
 export default function Analysis() {
@@ -80,6 +81,19 @@ export default function Analysis() {
       toast.error(err.response?.data?.error || 'Failed to start analysis');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const cancelAnalysis = async (jobId) => {
+    try {
+      await api.post(`/analysis/${jobId}/cancel`);
+      setJobProgress((p) => ({
+        ...p,
+        [jobId]: { ...(p[jobId] || {}), status: 'cancelled', stage: 'Cancelled by user' },
+      }));
+      toast.success('Analysis job cancelled');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to cancel analysis job');
     }
   };
 
@@ -226,18 +240,30 @@ export default function Analysis() {
                 const prog = jobProgress[job.jobId] || {};
                 const pct = prog.percent || 0;
                 const status = prog.status || job.status;
+                const isRunningOrQueued = status === 'running' || status === 'queued';
                 return (
-                  <div key={job.jobId} className={`p-4 border ${status === 'failed' ? 'border-alert/30' : 'border-border'} bg-surface-2`}>
+                  <div key={job.jobId} className={`p-4 border ${status === 'failed' ? 'border-alert/30' : status === 'cancelled' ? 'border-alert/20' : 'border-border'} bg-surface-2`}>
                     <div className="flex items-start gap-4">
                       <ProgressRing percent={pct} size={56} strokeWidth={4}
-                        color={status === 'complete' ? '#485935' : status === 'failed' ? '#9A4F3D' : '#7A3D2C'} />
+                        color={status === 'complete' ? '#485935' : status === 'failed' || status === 'cancelled' ? '#9A4F3D' : '#7A3D2C'} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-mono uppercase font-bold ${JOB_STATUS_STYLE[status] || 'text-text-muted'}`}>
-                            {status}
-                          </span>
-                          <span className="text-xs font-mono text-text-muted">·</span>
-                          <span className="text-xs font-mono text-text-muted">{job.modelType}</span>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-mono uppercase font-bold ${JOB_STATUS_STYLE[status] || 'text-text-muted'}`}>
+                              {status}
+                            </span>
+                            <span className="text-xs font-mono text-text-muted">·</span>
+                            <span className="text-xs font-mono text-text-muted">{job.modelType}</span>
+                          </div>
+                          {isRunningOrQueued && (
+                            <button
+                              type="button"
+                              onClick={() => cancelAnalysis(job.jobId)}
+                              className="px-2 py-0.5 text-[10px] font-mono uppercase font-bold text-alert border border-alert/40 hover:bg-alert/15 transition-all rounded cursor-pointer"
+                            >
+                              ✕ Cancel Job
+                            </button>
+                          )}
                         </div>
                         <p className="text-sm text-text-secondary truncate">{getDatasetName(job.datasetId)}</p>
                         <p className="text-xs font-mono text-text-muted mt-1">{prog.stage || 'Waiting...'}</p>
@@ -245,7 +271,7 @@ export default function Analysis() {
                         <div className="mt-2 h-1 bg-surface-3 w-full">
                           <div
                             className="h-1 bg-accent transition-all duration-500"
-                            style={{ width: `${pct}%`, background: status === 'failed' ? '#9A4F3D' : status === 'complete' ? '#485935' : '#7A3D2C' }}
+                            style={{ width: `${pct}%`, background: status === 'failed' || status === 'cancelled' ? '#9A4F3D' : status === 'complete' ? '#485935' : '#7A3D2C' }}
                           />
                         </div>
                       </div>

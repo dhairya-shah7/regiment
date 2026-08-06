@@ -279,23 +279,62 @@ exports.getJobResults = async (req, res, next) => {
   }
 };
 
+// POST /api/analysis/:jobId/cancel
+exports.cancelJob = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const job = getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found', code: 'JOB_NOT_FOUND' });
+    }
+
+    if (['complete', 'failed', 'cancelled'].includes(job.status)) {
+      return res.json({ message: `Job is already ${job.status}`, job });
+    }
+
+    updateJob(jobId, {
+      status: 'cancelled',
+      stage: 'Cancelled by user',
+      endedAt: new Date(),
+    });
+
+    emitAnalysisProgress(jobId, job.percent || 0, 'Cancelled by user', 'cancelled');
+    emitToAll('job:cancelled', { jobId });
+
+    res.json({ message: 'Analysis job cancelled successfully', jobId, status: 'cancelled' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function requestWithRetry(requestFn, label, attempts = 3) {
+async function requestWithRetry(requestFn, label, attempts = 8) {
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       return await requestFn();
     } catch (err) {
       lastError = err;
-      const reset = err?.code === 'ML_SERVICE_RESET' || err?.code === 'ECONNRESET';
-      if (!reset || attempt === attempts) {
+      const status = err?.statusCode || err?.response?.status;
+      const isRetryable =
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        err?.code === 'ML_SERVICE_WARMING_UP' ||
+        err?.code === 'ML_SERVICE_RESET' ||
+        err?.code === 'ML_SERVICE_UNAVAILABLE' ||
+        err?.code === 'ECONNRESET' ||
+        err?.code === 'ECONNREFUSED' ||
+        err?.code === 'ETIMEDOUT';
+
+      if (!isRetryable || attempt === attempts) {
         throw err;
       }
-      console.warn(`[Analysis] ${label} request reset by ML service; retrying (${attempt}/${attempts})`);
-      await sleep(1500 * attempt);
+      console.warn(`[Analysis] ${label} attempt ${attempt}/${attempts} failed (${status || err.code}); retrying as ML service warms up...`);
+      await sleep(3000 * attempt);
     }
   }
   throw lastError;
