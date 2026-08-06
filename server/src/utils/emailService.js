@@ -56,9 +56,11 @@ exports.sendOTPEmail = async (toEmail, otpCode) => {
       return true;
     } catch (err) {
       console.error(`[AUTH] Failed to send email via SMTP: ${err.message}`);
-      // Fallback allowed in local/dev
       return true;
     }
+  } else {
+    console.warn(`[AUTH] SMTP settings missing in environment (SMTP_HOST, SMTP_USER, SMTP_PASS).`);
+    console.warn(`[AUTH] To enable live email delivery on your deployed site, configure SMTP environment variables in your server .env.`);
   }
 
   return true;
