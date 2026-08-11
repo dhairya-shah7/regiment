@@ -412,7 +412,7 @@ async function buildCsvForm(FormDataCtor, dataset) {
           r.label || 'normal',
         ].join(','));
       }
-      stream = Readable.from(lines.join('\n'));
+      stream = Buffer.from(lines.join('\n'), 'utf-8');
     }
   }
 
@@ -420,7 +420,7 @@ async function buildCsvForm(FormDataCtor, dataset) {
   if (!stream && dataset.name.includes('Demo')) {
     const { INLINE_DEMO_CSV } = require('../utils/seedDemoDataset');
     if (INLINE_DEMO_CSV) {
-      stream = Readable.from(INLINE_DEMO_CSV);
+      stream = Buffer.from(INLINE_DEMO_CSV, 'utf-8');
     }
   }
 
