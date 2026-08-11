@@ -496,7 +496,7 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
                 dst_ip = extract_ip(raw_row, canonical_row, "dst")
                 threat_type = detect_threat_type(raw_row, canonical_row, risk, classification)
                 explanation = build_explanation(raw_row, canonical_row, threat_type, risk, classification)
-                is_anomaly = bool(batch_predictions[offset] == -1 or risk > 0.55)
+                is_anomaly = bool(batch_predictions[offset] == -1 or risk > 0.40 or classification in ("critical", "suspicious"))
 
                 attack_phase = HybridEnsembleScorer.classify_attack_phase(
                     risk_score=risk,
@@ -583,9 +583,10 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
 # Routes
 # ─────────────────────────────────────────────────────────────
 
+@app.get("/")
 @app.get("/health")
 def health():
-    return {"status": "ok", "models_loaded": len(models)}
+    return {"status": "ok", "service": "sentinelops-ml-service", "models_loaded": len(models)}
 
 
 @app.post("/ml/train")

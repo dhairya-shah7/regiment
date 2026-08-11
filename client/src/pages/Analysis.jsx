@@ -207,7 +207,11 @@ export default function Analysis() {
                 </div>
                 <div className="border border-border p-2 min-w-0">
                   <p className="text-text-muted uppercase tracking-wider text-[10px] truncate">Confidence</p>
-                  <p className="text-text-primary mt-1 font-bold text-xs truncate">{latestSummary.accuracyEstimate != null ? `${latestSummary.accuracyEstimate}%` : 'N/A'}</p>
+                  <p className="text-text-primary mt-1 font-bold text-xs truncate">
+                    {latestSummary.accuracyEstimate != null 
+                      ? `${latestSummary.accuracyEstimate <= 1 ? (latestSummary.accuracyEstimate * 100).toFixed(1) : latestSummary.accuracyEstimate}%` 
+                      : 'N/A'}
+                  </p>
                 </div>
               </div>
             </div>

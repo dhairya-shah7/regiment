@@ -61,28 +61,25 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   updateJob(jobId, { percent: 15, stage: 'Training model' });
   emitAnalysisProgress(jobId, 15, 'Training model');
 
-  let predictResult = null;
-  let mlResult = null;
-
-  try {
-    const trainResp = await requestWithRetry(
-      async () => {
-        const form = await buildCsvForm(FormData, dataset);
-        return mlClient.post('/ml/train', form, {
-          headers: form.getHeaders(),
-          params: {
-            dataset_source: dataset.source,
-            model_type: modelType,
-            contamination,
-            dataset_id: dataset._id.toString(),
-          },
-          timeout: 1800000, // 30 min
-        });
-      },
-      'training',
-      jobId,
-      3
-    );
+  // Submit to ML service (Python FastAPI)
+  const trainResp = await requestWithRetry(
+    async () => {
+      const form = await buildCsvForm(FormData, dataset);
+      return mlClient.post('/ml/train', form, {
+        headers: form.getHeaders(),
+        params: {
+          dataset_source: dataset.source,
+          model_type: modelType,
+          contamination,
+          dataset_id: dataset._id.toString(),
+        },
+        timeout: 1800000, // 30 min
+      });
+    },
+    'training',
+    jobId,
+    15
+  );
 
     const mlJobId = trainResp.data.job_id;
     updateJob(jobId, { percent: 25, stage: 'Waiting for ML training', mlJobId });
@@ -145,13 +142,14 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
       },
       'prediction',
       jobId,
-      3
+      15
     );
 
     const predictJobId = predictStartResp.data.job_id;
     updateJob(jobId, { percent: 92, stage: 'Waiting for prediction results', predictJobId });
     emitAnalysisProgress(jobId, 92, 'Waiting for prediction results');
 
+    let predictResult = null;
     for (let attempt = 0; attempt < 540; attempt++) {
       const jobState = getJob(jobId);
       if (jobState?.status === 'cancelled') {
@@ -189,35 +187,6 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
         throw createError(500, statusResp.data.message || 'ML prediction failed', 'ML_PREDICT_FAILED');
       }
     }
-  } catch (err) {
-    const isConnErr =
-      err?.code === 'ECONNREFUSED' ||
-      err?.code === 'ENOTFOUND' ||
-      err?.code === 'ML_SERVICE_WARMING_UP' ||
-      err?.code === 'ML_SERVICE_RESET' ||
-      err?.code === 'ML_SERVICE_UNAVAILABLE' ||
-      err?.statusCode === 502 ||
-      err?.statusCode === 503 ||
-      err?.statusCode === 504 ||
-      err?.response?.status === 502 ||
-      err?.response?.status === 503 ||
-      err?.response?.status === 504 ||
-      err?.message?.includes('offline') ||
-      err?.message?.includes('warming up') ||
-      err?.message?.includes('unreachable');
-
-    if (isConnErr) {
-      console.warn(`[Analysis] ML microservice warming up / unreachable (502). Switched to Built-in Statistical Anomaly Engine.`);
-      updateJob(jobId, { percent: 50, stage: 'Executing Built-in Statistical Engine (ML Service Warming Up)' });
-      emitAnalysisProgress(jobId, 50, 'Executing Built-in Statistical Engine');
-      await sleep(1000);
-
-      predictResult = await runFallbackJsAnalysis(dataset, modelType, contamination);
-      mlResult = { model_id: predictResult.model_id };
-    } else {
-      throw err;
-    }
-  }
 
   if (!predictResult) throw createError(504, 'ML prediction timed out', 'ML_PREDICT_TIMEOUT');
 
