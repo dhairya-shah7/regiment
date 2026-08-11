@@ -639,6 +639,19 @@ async def train_model(
     return {"job_id": job_id, "status": "queued", "message": "Training started"}
 
 
+@app.delete("/ml/jobs/{job_id}")
+def cancel_ml_job(job_id: str):
+    """Cancel a job by marking it as cancelled in the store."""
+    if job_id not in job_store:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = job_store[job_id]
+    if job.status not in ["queued", "running"]:
+        return {"message": f"Job is already {job.status}"}
+    
+    job.status = "cancelled"
+    job.message = "Cancelled by user"
+    return {"message": "Job cancelled"}
+
 @app.get("/ml/train/{job_id}/status")
 def get_train_status(job_id: str):
     """Poll training job status."""

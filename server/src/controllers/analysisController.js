@@ -58,23 +58,24 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   updateJob(jobId, { status: 'running', percent: 5, stage: 'Sending to ML service' });
   emitAnalysisProgress(jobId, 5, 'Sending to ML service');
 
-  const form = await buildCsvForm(FormData, dataset);
-
   updateJob(jobId, { percent: 15, stage: 'Training model' });
   emitAnalysisProgress(jobId, 15, 'Training model');
 
   // Submit to ML service
   const trainResp = await requestWithRetry(
-    () => mlClient.post('/ml/train', form, {
-      headers: form.getHeaders(),
-      params: {
-        dataset_source: dataset.source,
-        model_type: modelType,
-        contamination,
-        dataset_id: dataset._id.toString(),
-      },
-      timeout: 1800000, // 30 min
-    }),
+    async () => {
+      const form = await buildCsvForm(FormData, dataset);
+      return mlClient.post('/ml/train', form, {
+        headers: form.getHeaders(),
+        params: {
+          dataset_source: dataset.source,
+          model_type: modelType,
+          contamination,
+          dataset_id: dataset._id.toString(),
+        },
+        timeout: 1800000, // 30 min
+      });
+    },
     'training'
   );
 
@@ -84,6 +85,12 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   // Poll ML service for completion
   let mlResult = null;
   for (let attempt = 0; attempt < 180; attempt++) {
+    const jobState = getJob(jobId);
+    if (jobState?.status === 'cancelled') {
+      console.log(`[Analysis] Job ${jobId} cancelled during training polling`);
+      return;
+    }
+
     await sleep(2000);
     let statusResp;
     try {
@@ -117,19 +124,21 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   updateJob(jobId, { percent: 88, stage: 'Starting prediction job' });
   emitAnalysisProgress(jobId, 88, 'Starting prediction job');
 
-  const predictForm = buildCsvForm(FormData, dataset.filePath);
   updateJob(jobId, { percent: 90, stage: 'Submitting prediction job' });
   emitAnalysisProgress(jobId, 90, 'Submitting prediction job');
   const predictStartResp = await requestWithRetry(
-    () => mlClient.post('/ml/predict', predictForm, {
-      headers: predictForm.getHeaders(),
-      params: {
-        model_id: mlResult.model_id,
-        dataset_source: dataset.source,
-        dataset_id: dataset._id.toString(),
-      },
-      timeout: 600000,
-    }),
+    async () => {
+      const predictForm = await buildCsvForm(FormData, dataset);
+      return mlClient.post('/ml/predict', predictForm, {
+        headers: predictForm.getHeaders(),
+        params: {
+          model_id: mlResult.model_id,
+          dataset_source: dataset.source,
+          dataset_id: dataset._id.toString(),
+        },
+        timeout: 600000,
+      });
+    },
     'prediction'
   );
 
@@ -139,6 +148,12 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
 
   let predictResult = null;
   for (let attempt = 0; attempt < 540; attempt++) {
+    const jobState = getJob(jobId);
+    if (jobState?.status === 'cancelled') {
+      console.log(`[Analysis] Job ${jobId} cancelled during prediction polling`);
+      return;
+    }
+
     await sleep(2000);
     let statusResp;
     try {
@@ -290,6 +305,17 @@ exports.cancelJob = async (req, res, next) => {
 
     if (['complete', 'failed', 'cancelled'].includes(job.status)) {
       return res.json({ message: `Job is already ${job.status}`, job });
+    }
+
+    // Try to cancel the ML job if we have an ID
+    const activeMlJobId = job.predictJobId || job.mlJobId;
+    if (activeMlJobId) {
+      try {
+        await mlClient.delete(`/ml/jobs/${activeMlJobId}`);
+        console.log(`[Analysis] Cancelled ML job ${activeMlJobId} on ML service`);
+      } catch (err) {
+        console.warn(`[Analysis] Failed to cancel ML job ${activeMlJobId}:`, err.message);
+      }
     }
 
     updateJob(jobId, {
