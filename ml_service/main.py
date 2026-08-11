@@ -584,7 +584,9 @@ def _run_prediction_job(job_id: str, model_id: str, dataset_source: str, dataset
 # ─────────────────────────────────────────────────────────────
 
 @app.get("/")
+@app.head("/")
 @app.get("/health")
+@app.head("/health")
 def health():
     return {"status": "ok", "service": "sentinelops-ml-service", "models_loaded": len(models)}
 
