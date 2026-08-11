@@ -1,7 +1,10 @@
 const axios = require('axios');
 
+const rawUrl = process.env.ML_SERVICE_URL || 'https://regiment-ndjj.onrender.com';
+const baseURL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+
 const mlClient = axios.create({
-  baseURL: process.env.ML_SERVICE_URL || 'http://localhost:8000',
+  baseURL,
   timeout: 1800000, // 30 min - large datasets can take a while
   maxBodyLength: Infinity,
   maxContentLength: Infinity,
