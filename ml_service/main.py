@@ -633,7 +633,7 @@ async def train_model(
     # Run in thread pool so FastAPI stays async
     import concurrent.futures
     loop = asyncio.get_event_loop()
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     loop.run_in_executor(executor, _run_training_job, job_id, df, req)
 
     return {"job_id": job_id, "status": "queued", "message": "Training started"}

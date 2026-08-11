@@ -190,10 +190,25 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
       }
     }
   } catch (err) {
-    const isConnErr = err?.code === 'ECONNREFUSED' || err?.code === 'ENOTFOUND' || err?.message?.includes('offline or unreachable');
+    const isConnErr =
+      err?.code === 'ECONNREFUSED' ||
+      err?.code === 'ENOTFOUND' ||
+      err?.code === 'ML_SERVICE_WARMING_UP' ||
+      err?.code === 'ML_SERVICE_RESET' ||
+      err?.code === 'ML_SERVICE_UNAVAILABLE' ||
+      err?.statusCode === 502 ||
+      err?.statusCode === 503 ||
+      err?.statusCode === 504 ||
+      err?.response?.status === 502 ||
+      err?.response?.status === 503 ||
+      err?.response?.status === 504 ||
+      err?.message?.includes('offline') ||
+      err?.message?.includes('warming up') ||
+      err?.message?.includes('unreachable');
+
     if (isConnErr) {
-      console.warn(`[Analysis] ML microservice not reachable. Switched to Built-in Statistical Anomaly Engine.`);
-      updateJob(jobId, { percent: 50, stage: 'Executing Built-in Statistical Engine (ML Service Offline)' });
+      console.warn(`[Analysis] ML microservice warming up / unreachable (502). Switched to Built-in Statistical Anomaly Engine.`);
+      updateJob(jobId, { percent: 50, stage: 'Executing Built-in Statistical Engine (ML Service Warming Up)' });
       emitAnalysisProgress(jobId, 50, 'Executing Built-in Statistical Engine');
       await sleep(1000);
 
