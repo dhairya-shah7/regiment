@@ -87,11 +87,16 @@ export default function Analysis() {
   const cancelAnalysis = async (jobId) => {
     try {
       await api.post(`/analysis/${jobId}/cancel`);
-      setJobProgress((p) => ({
-        ...p,
-        [jobId]: { ...(p[jobId] || {}), status: 'cancelled', stage: 'Cancelled by user' },
-      }));
-      toast.success('Analysis job cancelled');
+      setJobs((j) => j.filter((item) => item.jobId !== jobId));
+      setJobProgress((p) => {
+        const next = { ...p };
+        delete next[jobId];
+        return next;
+      });
+      if (activeJobId === jobId) {
+        setActiveJobId(null);
+      }
+      toast.success('Analysis job cancelled and removed');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to cancel analysis job');
     }
