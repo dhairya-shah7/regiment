@@ -276,6 +276,31 @@ async function runAnalysisJob(jobId, dataset, modelType, contamination, userId) 
   }
 }
 
+// GET /api/analysis/jobs
+exports.getActiveJobs = (req, res) => {
+  const { getAllJobs } = require('../utils/jobQueue');
+  const allJobs = getAllJobs();
+  // Filter out cancelled jobs and sort active/recent first
+  const activeJobs = allJobs.filter((j) => j.status !== 'cancelled');
+  res.json({ jobs: activeJobs });
+};
+
+// GET /api/analysis/latest
+exports.getLatestSummary = async (req, res, next) => {
+  try {
+    const { getAllJobs } = require('../utils/jobQueue');
+    const allJobs = getAllJobs();
+    const completedJobs = allJobs.filter((j) => j.status === 'complete' && j.result);
+    if (completedJobs.length > 0) {
+      completedJobs.sort((a, b) => new Date(b.endedAt || b.startedAt) - new Date(a.endedAt || a.startedAt));
+      return res.json({ result: completedJobs[0].result });
+    }
+    return res.json({ result: null });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/analysis/:jobId/status
 exports.getJobStatus = (req, res) => {
   const job = getJob(req.params.jobId);

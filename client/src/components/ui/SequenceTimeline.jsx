@@ -16,8 +16,8 @@ export default function SequenceTimeline({ anomaly, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end transition-opacity">
-      <div className="w-full sm:max-w-2xl bg-bg-card border-l border-border h-full overflow-y-auto p-4 sm:p-6 space-y-6 shadow-2xl flex flex-col justify-between">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-end transition-opacity p-0 sm:p-4">
+      <div className="w-full sm:max-w-2xl bg-bg-body border-l sm:border border-border sm:rounded-2xl h-full overflow-y-auto p-4 sm:p-6 space-y-6 shadow-2xl flex flex-col justify-between">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-start justify-between border-b border-border/60 pb-4 gap-3">
@@ -42,36 +42,36 @@ export default function SequenceTimeline({ anomaly, onClose }) {
 
           {/* Risk Score Summary */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="card p-3 bg-bg-body border border-border/40">
+            <div className="card p-3 bg-bg-card border border-border/60 shadow-sm">
               <span className="text-xs text-text-muted font-mono block">Fused Risk Score</span>
               <span className="text-lg font-bold font-mono text-alert">{(risk * 100).toFixed(1)}%</span>
             </div>
-            <div className="card p-3 bg-bg-body border border-border/40">
+            <div className="card p-3 bg-bg-card border border-border/60 shadow-sm">
               <span className="text-xs text-text-muted font-mono block">Classification</span>
               <span className="text-lg font-bold font-mono capitalize text-accent">{anomaly.classification || 'suspicious'}</span>
             </div>
-            <div className="card p-3 bg-bg-body border border-border/40">
+            <div className="card p-3 bg-bg-card border border-border/60 shadow-sm">
               <span className="text-xs text-text-muted font-mono block">Sequence Steps</span>
               <span className="text-lg font-bold font-mono text-cyan-400">{timeline.length || 1} Flows</span>
             </div>
           </div>
 
-          {/* Temporal Attack Sequence Trajectory */}
-          <div>
-            <h4 className="text-sm font-semibold font-mono text-text mb-3 flex items-center gap-2">
+          {/* Temporal Attack Sequence Trajectory Box */}
+          <div className="card p-4 sm:p-5 bg-bg-card border border-border/80 rounded-xl space-y-4 shadow-md">
+            <h4 className="text-sm font-bold font-mono text-amber-400 tracking-wider flex items-center justify-center text-center gap-2">
               <span>⚡ Temporal Flow Progression (PyTorch LSTM Sequence)</span>
             </h4>
 
             {timeline.length === 0 ? (
-              <p className="text-xs text-text-muted font-mono italic">No preceding sequence steps captured.</p>
+              <p className="text-xs text-text-muted font-mono italic text-center">No preceding sequence steps captured.</p>
             ) : (
               <div className="space-y-4">
                 {/* Visual Trajectory Bar */}
                 <div className="bg-bg-body p-4 rounded border border-border/40 space-y-2">
-                  <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
-                    <span>Baseline (T1)</span>
-                    <span>Escalation Trend</span>
-                    <span>Anomaly Peak (T{timeline.length})</span>
+                  <div className="flex justify-between items-center text-center text-xs font-mono font-bold mb-1">
+                    <span className="text-cyan-400">Baseline (T1)</span>
+                    <span className="text-amber-400">Escalation Trend</span>
+                    <span className="text-alert">Anomaly Peak (T{timeline.length})</span>
                   </div>
                   <div className="h-3 w-full bg-border/40 rounded-full overflow-hidden flex gap-1 p-0.5">
                     {timeline.map((step, idx) => {
