@@ -36,67 +36,67 @@ export default function SequenceTimeline({ anomaly, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-[#1c130b]/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-[#1c130b]/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div 
-        className="w-full sm:max-w-2xl max-h-[90vh] bg-[#fbf6ea] text-[#2c1d11] border-2 border-[#7a3d2c]/30 rounded-2xl overflow-y-auto p-5 sm:p-6 space-y-6 shadow-2xl flex flex-col justify-between my-auto"
+        className="w-full max-w-2xl max-h-[92vh] bg-[#fbf6ea] text-[#2c1d11] border-2 border-[#7a3d2c]/30 rounded-2xl overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-2xl flex flex-col justify-between my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-[#7a3d2c]/20 pb-4 gap-3">
-            <div className="min-w-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#7a3d2c]/20 pb-3 sm:pb-4 gap-2 sm:gap-3">
+            <div className="min-w-0 w-full sm:w-auto">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-lg sm:text-2xl font-bold font-mono text-[#2c1d11] break-all">{anomaly.srcIp || '0.0.0.0'}</span>
-                <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border shrink-0 ${phaseColors[phase] || phaseColors['Suspicious Flow']}`}>
+                <span className="text-base sm:text-2xl font-bold font-mono text-[#2c1d11] break-all">{anomaly.srcIp || '0.0.0.0'}</span>
+                <span className={`text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border shrink-0 ${phaseColors[phase] || phaseColors['Suspicious Flow']}`}>
                   {phase}
                 </span>
               </div>
-              <p className="text-xs text-[#786759] font-mono mt-1 break-words">
+              <p className="text-[11px] sm:text-xs text-[#786759] font-mono mt-1 break-words">
                 Target: <span className="font-bold text-[#2c1d11]">{anomaly.dstIp || '0.0.0.0'}</span> | Threat Type: <span className="text-[#9a4f3d] uppercase font-bold">{anomaly.threatType}</span>
               </p>
             </div>
             <button
               onClick={onClose}
-              className="bg-[#efe5d2] hover:bg-[#e5d8be] text-[#2c1d11] px-3 py-1.5 rounded-lg border border-[#7a3d2c]/30 font-mono text-xs font-bold shrink-0 transition-colors shadow-sm"
+              className="bg-[#efe5d2] hover:bg-[#e5d8be] text-[#2c1d11] px-3 py-1.5 rounded-lg border border-[#7a3d2c]/30 font-mono text-xs font-bold shrink-0 transition-colors shadow-sm self-end sm:self-auto"
             >
               ✕ Close
             </button>
           </div>
 
           {/* Risk Score Summary */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
-              <span className="text-xs text-[#786759] font-mono font-semibold block mb-1">Fused Risk Score</span>
-              <span className="text-xl font-bold font-mono text-[#9a4f3d]">{(risk * 100).toFixed(1)}%</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="p-3 sm:p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
+              <span className="text-[11px] sm:text-xs text-[#786759] font-mono font-semibold block mb-0.5 sm:mb-1">Fused Risk Score</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-[#9a4f3d]">{(risk * 100).toFixed(1)}%</span>
             </div>
-            <div className="p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
-              <span className="text-xs text-[#786759] font-mono font-semibold block mb-1">Classification</span>
-              <span className="text-xl font-bold font-mono capitalize text-[#a26a2d]">{anomaly.classification || 'suspicious'}</span>
+            <div className="p-3 sm:p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
+              <span className="text-[11px] sm:text-xs text-[#786759] font-mono font-semibold block mb-0.5 sm:mb-1">Classification</span>
+              <span className="text-lg sm:text-xl font-bold font-mono capitalize text-[#a26a2d]">{anomaly.classification || 'suspicious'}</span>
             </div>
-            <div className="p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
-              <span className="text-xs text-[#786759] font-mono font-semibold block mb-1">Sequence Steps</span>
-              <span className="text-xl font-bold font-mono text-[#2b6b74]">{timeline.length || 1} Flows</span>
+            <div className="p-3 sm:p-3.5 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-xl shadow-sm">
+              <span className="text-[11px] sm:text-xs text-[#786759] font-mono font-semibold block mb-0.5 sm:mb-1">Sequence Steps</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-[#2b6b74]">{timeline.length || 1} Flows</span>
             </div>
           </div>
 
           {/* Temporal Attack Sequence Trajectory Box */}
-          <div className="p-5 bg-[#f4ebd0] border border-[#7a3d2c]/25 rounded-2xl space-y-4 shadow-sm">
-            <h4 className="text-sm font-bold font-mono text-[#a26a2d] tracking-wider text-center w-full block">
+          <div className="p-3.5 sm:p-5 bg-[#f4ebd0] border border-[#7a3d2c]/25 rounded-2xl space-y-3 sm:space-y-4 shadow-sm">
+            <h4 className="text-xs sm:text-sm font-bold font-mono text-[#a26a2d] tracking-wider text-center w-full block">
               ⚡ TEMPORAL FLOW PROGRESSION (PYTORCH LSTM SEQUENCE)
             </h4>
 
             {timeline.length === 0 ? (
               <p className="text-xs text-[#786759] font-mono italic text-center">No preceding sequence steps captured.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Visual Trajectory Bar */}
-                <div className="bg-[#ebe0c5] p-4 rounded-xl border border-[#7a3d2c]/20 space-y-2">
-                  <div className="grid grid-cols-3 text-xs font-mono font-bold mb-1">
-                    <span className="text-[#2b6b74] text-left">Baseline (T1)</span>
-                    <span className="text-[#a26a2d] text-center">Escalation Trend</span>
-                    <span className="text-[#9a4f3d] text-right">Anomaly Peak (T{timeline.length})</span>
+                <div className="bg-[#ebe0c5] p-3 sm:p-4 rounded-xl border border-[#7a3d2c]/20 space-y-2">
+                  <div className="grid grid-cols-3 text-[10px] sm:text-xs font-mono font-bold mb-1">
+                    <span className="text-[#2b6b74] text-left truncate">Baseline (T1)</span>
+                    <span className="text-[#a26a2d] text-center truncate">Escalation Trend</span>
+                    <span className="text-[#9a4f3d] text-right truncate">Anomaly Peak (T{timeline.length})</span>
                   </div>
                   <div className="h-3 w-full bg-[#dfd3b5] rounded-full overflow-hidden flex gap-1 p-0.5 border border-[#7a3d2c]/20">
                     {timeline.map((step, idx) => {
@@ -115,12 +115,12 @@ export default function SequenceTimeline({ anomaly, onClose }) {
                   </div>
                 </div>
 
-                {/* Step Cards List */}
-                <div className="space-y-3 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#7a3d2c]/30">
+                {/* Step Cards List — Timeline line & circle perfectly centered */}
+                <div className="space-y-3 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#7a3d2c]/40">
                   {timeline.map((step, idx) => (
-                    <div key={idx} className="relative flex items-start gap-4 pl-10">
+                    <div key={idx} className="relative flex items-start gap-3 sm:gap-4 pl-9 sm:pl-10">
                       <div
-                        className={`absolute left-2.5 top-3.5 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-[#fbf6ea] flex items-center justify-center text-[9px] font-mono font-bold ${
+                        className={`absolute left-4 top-3.5 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-[#fbf6ea] flex items-center justify-center text-[9px] font-mono font-bold z-10 ${
                           idx === timeline.length - 1
                             ? 'border-[#9a4f3d] text-[#9a4f3d] animate-pulse'
                             : 'border-[#2b6b74] text-[#2b6b74]'
@@ -129,12 +129,12 @@ export default function SequenceTimeline({ anomaly, onClose }) {
                         {step.step}
                       </div>
 
-                      <div className="p-4 flex-1 bg-[#fbf6ea] border border-[#7a3d2c]/25 hover:border-[#7a3d2c]/60 rounded-xl transition-colors space-y-2 shadow-sm">
-                        <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="text-[#2c1d11] font-bold text-sm">Step {step.step}: {step.phase}</span>
-                          <span className="text-[#786759] font-semibold">{formatTimestamp(step.timestamp)}</span>
+                      <div className="p-3 sm:p-4 flex-1 bg-[#fbf6ea] border border-[#7a3d2c]/25 hover:border-[#7a3d2c]/60 rounded-xl transition-colors space-y-2 shadow-sm min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-mono gap-1">
+                          <span className="text-[#2c1d11] font-bold text-xs sm:text-sm">Step {step.step}: {step.phase}</span>
+                          <span className="text-[#786759] font-semibold text-[11px] sm:text-xs">{formatTimestamp(step.timestamp)}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono text-[#5c4f43]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 text-xs font-mono text-[#5c4f43]">
                           <div>
                             <span className="text-[#786759]">Packet Size: </span>
                             <span className="text-[#2c1d11] font-bold">{step.packet_size} B</span>
@@ -162,13 +162,13 @@ export default function SequenceTimeline({ anomaly, onClose }) {
 
           {/* Signals Breakdown */}
           {anomaly.explanation && (
-            <div className="p-4 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-2xl space-y-2">
+            <div className="p-3.5 sm:p-4 bg-[#f4ebd0] border border-[#7a3d2c]/20 rounded-2xl space-y-2">
               <h5 className="text-xs font-semibold font-mono text-[#2c1d11] uppercase tracking-wider">Explanation Signals</h5>
-              <p className="text-xs text-[#5c4f43] font-mono">{anomaly.explanation.summary}</p>
+              <p className="text-xs text-[#5c4f43] font-mono break-words">{anomaly.explanation.summary}</p>
               {anomaly.explanation.signals?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {anomaly.explanation.signals.map((sig, sIdx) => (
-                    <span key={sIdx} className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-[#efe5d2] border border-[#7a3d2c]/25 text-[#9a4f3d] font-bold">
+                    <span key={sIdx} className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-[#efe5d2] border border-[#7a3d2c]/25 text-[#9a4f3d] font-bold break-all">
                       ⚠️ {sig}
                     </span>
                   ))}
@@ -179,10 +179,10 @@ export default function SequenceTimeline({ anomaly, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[#7a3d2c]/20 pt-4 flex justify-end">
+        <div className="border-t border-[#7a3d2c]/20 pt-3 sm:pt-4 flex justify-end">
           <button 
             onClick={onClose} 
-            className="px-6 py-2.5 rounded-xl bg-[#7a3d2c] hover:bg-[#633022] text-[#fbf6ea] font-mono text-xs font-bold transition-colors shadow-md"
+            className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-[#7a3d2c] hover:bg-[#633022] text-[#fbf6ea] font-mono text-xs font-bold transition-colors shadow-md"
           >
             Done
           </button>
