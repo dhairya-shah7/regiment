@@ -58,7 +58,22 @@ export default function Anomalies() {
       label: 'Event Time',
       render: (v, row) => {
         const value = v || row.detectedAt;
-        return value ? new Date(value).toLocaleString('en-US', { hour12: false }) : '—';
+        if (!value) return '—';
+        try {
+          const d = new Date(value);
+          if (isNaN(d.getTime())) return String(value);
+          return d.toLocaleString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          });
+        } catch {
+          return String(value);
+        }
       },
     },
     { key: 'datasetId', label: 'Dataset', render: (v, row) => <span className="font-mono text-xs">{row.datasetId?.name || '—'}</span> },
@@ -200,7 +215,17 @@ export default function Anomalies() {
                 ['Threat Type', selected.threatType?.replace(/_/g, ' ')],
                 ['Attack Phase', selected.attackPhase || 'Suspicious Flow'],
                 ['Risk Score', selected.riskScore?.toFixed(4)],
-                ['Event Time', selected.eventTimestamp || selected.detectedAt],
+                ['Event Time', (() => {
+                  const val = selected.eventTimestamp || selected.detectedAt;
+                  if (!val) return '—';
+                  try {
+                    const d = new Date(val);
+                    if (isNaN(d.getTime())) return String(val);
+                    return d.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                  } catch {
+                    return String(val);
+                  }
+                })()],
                 ['Classification', selected.classification],
                 ['Status', selected.status],
                 ['Packet Size', selected.packetSize],
